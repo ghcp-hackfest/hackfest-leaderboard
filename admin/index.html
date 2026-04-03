@@ -87,8 +87,6 @@
       <span class="org-badge">ghcp-hackfest</span>
     </div>
     <div class="topbar-right">
-      <span id="write-lock-badge" class="write-lock">&#x1F512; 읽기 전용</span>
-      <button class="btn btn-secondary btn-sm" onclick="promptToken()">토큰 입력</button>
       <button class="btn btn-secondary btn-sm" onclick="refreshAll()">&#x21BB; 새로고침</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">&#x2193; CSV</button>
       <a class="btn btn-secondary btn-sm" href="https://ghcp-hackfest.github.io/hackfest-leaderboard/" target="_blank">리더보드 &#x2192;</a>
@@ -106,7 +104,6 @@
     <div class="section">
       <div class="section-header">
         <span class="section-title">&#x1F4CA; 팀 점수 현황</span>
-        <button class="btn btn-danger btn-sm" onclick="requireToken(confirmResetAll)">전체 초기화</button>
       </div>
       <div id="scores-container"><div class="empty-state"><span class="spinner"></span></div></div>
     </div>
@@ -226,7 +223,7 @@ async function loadRuns(){
   if(!res.ok){document.getElementById('runs-container').innerHTML='<div class="empty-state">토큰 입력 후 실행 내역을 볼 수 있습니다.</div>';return;}
   const data=await res.json(),runs=data.workflow_runs||[];
   if(!runs.length){document.getElementById('runs-container').innerHTML='<div class="empty-state">실행 내역이 없습니다.</div>';return;}
-  const lm={success:'✅ 성공',failure:'❌ 실패',in_progress:'⏳ 진행중',queued:'��� 대기',cancelled:'⊘ 취소'};
+  const lm={success:'✅ 성공',failure:'❌ 실패',in_progress:'⏳ 진행중',queued:'��� 대기',cancelled:'⊘ 취소'};
   const rows=runs.map(r=>{
     const st=r.conclusion||r.status;
     const dur=r.updated_at?Math.round((new Date(r.updated_at)-new Date(r.created_at))/1000)+'s':'—';
@@ -243,7 +240,7 @@ function requireToken(cb){if(ghToken){cb();return;}tokenCb=cb;document.getElemen
 function promptToken(){tokenCb=null;document.getElementById('token-overlay').classList.add('active');setTimeout(()=>document.getElementById('input-token').focus(),100);}
 function submitToken(){const t=document.getElementById('input-token').value.trim();if(!t)return;ghToken=t;document.getElementById('input-token').value='';closeTokenModal();updateLock();showToast('쓰기 권한 활성화됨','success');loadRuns();if(tokenCb){const cb=tokenCb;tokenCb=null;cb();}}
 function closeTokenModal(){document.getElementById('token-overlay').classList.remove('active');}
-function updateLock(){const e=document.getElementById('write-lock-badge');if(ghToken){e.textContent='��� 쓰기 활성';e.classList.add('unlocked');}else{e.textContent='��� 읽기 전용';e.classList.remove('unlocked');}}
+function updateLock(){const e=document.getElementById('write-lock-badge');if(ghToken){e.textContent='��� 쓰기 활성';e.classList.add('unlocked');}else{e.textContent='��� 읽기 전용';e.classList.remove('unlocked');}}
 
 async function triggerGrading(team){
   let ok=0;
