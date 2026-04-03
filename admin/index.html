@@ -294,7 +294,7 @@ async function login(){
   else{err.style.display='block';}
 }
 
-function logout(){sessionStorage.removeItem('hf_auth');ghToken='';document.getElementById('dashboard').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('input-password').value='';updateLock();}
+function logout(){sessionStorage.removeItem('hf_auth');sessionStorage.removeItem('hf_token');ghToken='';document.getElementById('dashboard').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('input-password').value='';updateLock();}
 
 async function showDashboard(){
   document.getElementById('login-screen').style.display='none';
@@ -542,7 +542,7 @@ async function loadRuns(){
 // ── Token / Auth ──────────────────────────────────────────────
 function requireToken(cb){if(ghToken){cb();return;}tokenCb=cb;document.getElementById('token-overlay').classList.add('active');setTimeout(()=>document.getElementById('input-token').focus(),100);}
 function promptToken(){tokenCb=null;document.getElementById('token-overlay').classList.add('active');setTimeout(()=>document.getElementById('input-token').focus(),100);}
-function submitToken(){const t=document.getElementById('input-token').value.trim();if(!t)return;ghToken=t;document.getElementById('input-token').value='';closeTokenModal();updateLock();showToast('쓰기 권한 활성화됨','success');loadRuns();if(tokenCb){const cb=tokenCb;tokenCb=null;cb();}}
+function submitToken(){const t=document.getElementById('input-token').value.trim();if(!t)return;ghToken=t;sessionStorage.setItem('hf_token',t);document.getElementById('input-token').value='';closeTokenModal();updateLock();showToast('쓰기 권한 활성화됨','success');loadRuns();if(tokenCb){const cb=tokenCb;tokenCb=null;cb();}}
 function closeTokenModal(){document.getElementById('token-overlay').classList.remove('active');}
 function updateLock(){const e=document.getElementById('write-lock-badge');if(ghToken){e.textContent='🔓 쓰기 활성';e.classList.add('unlocked');}else{e.textContent='🔒 읽기 전용';e.classList.remove('unlocked');}}
 
@@ -676,7 +676,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   // NC ID 자동 완성
   const nameEl=document.getElementById('nc-name');
   if(nameEl)nameEl.addEventListener('input',()=>{document.getElementById('nc-id').value=nameEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');});
-  if(sessionStorage.getItem('hf_auth')==='1')showDashboard();
+  if(sessionStorage.getItem('hf_auth')==='1'){
+    const saved=sessionStorage.getItem('hf_token');
+    if(saved){ghToken=saved;}
+    showDashboard();
+  }
 });
 </script>
 
