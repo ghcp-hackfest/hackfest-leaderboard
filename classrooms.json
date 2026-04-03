@@ -3,20 +3,20 @@
     "id": "ghcp-hackfest-2026-04",
     "name": "GHCP HackFest — Apr 2026",
     "org": "ghcp-hackfest",
-    "workshop": "java-workshop",
+    "workshop": "java-rescue-workshop",
     "missions": [
       {
         "id": "mission-01",
         "name": "☕ Java Rescue",
-        "template_repo": "java-workshop-mission-01-template",
-        "grading_workflow": "grade-java-mission-01.yml",
+        "template_repo": "java-rescue-workshop-template",
+        "grading_workflow": "grade-java-rescue-mission-01.yml",
         "max_score": 100
       },
       {
         "id": "mission-02",
         "name": "🔐 Security Fix",
-        "template_repo": "java-workshop-mission-02-template",
-        "grading_workflow": "grade-java-mission-02.yml",
+        "template_repo": "java-rescue-workshop-template",
+        "grading_workflow": "grade-java-rescue-mission-02.yml",
         "max_score": 150
       }
     ],
