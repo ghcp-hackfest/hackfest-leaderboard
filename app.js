@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadClassrooms() {
     try {
         const url = `https://api.github.com/repos/${CONFIG.GITHUB_ORG}/${CONFIG.LEADERBOARD_REPO}/contents/${CONFIG.CLASSROOMS_FILE}`;
-        const res = await fetch(url, { headers: { Accept: 'application/vnd.github.v3+json' } });
+        const res = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const meta = await res.json();
         const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g, '')), c => c.charCodeAt(0))));
@@ -151,7 +151,7 @@ async function loadScores() {
     try {
         const apiBase = `https://api.github.com/repos/${CONFIG.GITHUB_ORG}/${CONFIG.LEADERBOARD_REPO}` +
                         `/contents/${CONFIG.SCORES_PATH}/${state.classroom.id}`;
-        const res = await fetch(apiBase, { headers: { Accept: 'application/vnd.github.v3+json' } });
+        const res = await fetch(apiBase, { headers: { Accept: 'application/vnd.github+json' } });
 
         if (!res.ok) {
             if (res.status === 404) { renderEmptyState(); setStatus('live'); return; }

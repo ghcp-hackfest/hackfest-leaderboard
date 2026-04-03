@@ -1,21 +1,21 @@
 [
   {
-    "id": "awefawefa",
-    "name": "awefawefa",
+    "id": "ghcp-hackfest-2026-04",
+    "name": "GHCP HackFest 2026 - Apr",
     "org": "ghcp-hackfest",
+    "classroom_url": "https://classroom.github.com/classrooms/273247604-ghcp-hackfest-classroom-cca397",
+    "github_classroom_id": 273247604,
     "missions": [
       {
         "id": "mission-01",
         "name": "Java Rescue",
         "max_score": 100,
-        "template_repo": "java-rescue-workshop-template",
         "grading_workflow": "grade-java-rescue-mission-01.yml"
       },
       {
         "id": "mission-02",
         "name": "Security Fix",
-        "max_score": 100,
-        "template_repo": "java-rescue-workshop-template",
+        "max_score": 150,
         "grading_workflow": "grade-java-rescue-mission-02.yml"
       }
     ],
