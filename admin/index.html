@@ -170,10 +170,7 @@
       <input type="text" id="nc-id" placeholder="acme-2026-04">
     </div>
     <div class="form-group"><label>GitHub Org</label>
-      <input type="text" id="nc-org" placeholder="ghcp-hackfest">
-    </div>
-    <div class="form-group"><label>GitHub Classroom URL <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
-      <input type="url" id="nc-classroom-url" placeholder="https://classroom.github.com/classrooms/...">
+      <input type="text" id="nc-org" value="ghcp-hackfest" readonly style="opacity:.6;cursor:not-allowed">
     </div>
     <div class="form-group"><label>Workshop Template <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
       <div class="nc-template-row">
@@ -184,11 +181,10 @@
     <div class="form-group"><label>미션 목록 <span style="color:var(--danger)">*</span></label>
       <div class="mission-col-header"><span>ID</span><span>이름</span><span>최대점수</span><span></span></div>
       <div id="nc-mission-list" class="mission-list-box"></div>
-      <button class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="addMissionRow()">+ 미션 추가</button>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeNewClassroomModal()">취소</button>
-      <button class="btn btn-primary" onclick="createClassroom()">생성</button>
+      <button class="btn btn-primary" onclick="requireToken(createClassroom)">생성</button>
     </div>
   </div>
 </div>
@@ -346,7 +342,7 @@ async function selectClassroom(classroom){
 function showNewClassroomModal(){
   populateTemplateDropdown();
   const box=document.getElementById('nc-mission-list');
-  if(!box.children.length)addMissionRow();
+  if(!box.children.length)loadTemplateMissions();
   document.getElementById('new-classroom-overlay').classList.add('active');
   setTimeout(()=>document.getElementById('nc-name').focus(),100);
 }
@@ -423,19 +419,18 @@ async function createClassroom(){
   const name=document.getElementById('nc-name').value.trim();
   const id=document.getElementById('nc-id').value.trim();
   const org=document.getElementById('nc-org').value.trim()||ORG;
-  const classroomUrl=document.getElementById('nc-classroom-url').value.trim();
   const missions=getMissionRows();
   if(!name||!id){showToast('이름과 ID는 필수입니다','error');return;}
   if(!/^[a-z0-9-]+$/.test(id)){showToast('ID는 소문자, 숫자, -만 가능합니다','error');return;}
   if(classrooms.find(c=>c.id===id)){showToast('이미 존재하는 Classroom ID입니다','error');return;}
   if(!missions.length){showToast('미션을 1개 이상 추가하세요','error');return;}
-  const entry={id,name,org,...(classroomUrl&&{classroom_url:classroomUrl}),missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
+  const entry={id,name,org,missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
   const ok=await saveClassrooms([...classrooms,entry]);
   if(!ok)return;
   await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+id+'/.gitkeep',ghToken,'PUT',{message:'init: scores folder for '+id,content:btoa('')});
   classrooms=[...classrooms,entry];
   closeNewClassroomModal();
-  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-org').value='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-mission-list').innerHTML='';document.getElementById('nc-template').value='';
+  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-mission-list').innerHTML='';document.getElementById('nc-template').value='';
   await loadClassrooms();
   await selectClassroom(entry);
   showSetupGuide(entry);
