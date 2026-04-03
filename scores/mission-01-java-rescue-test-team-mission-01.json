@@ -1,0 +1,12 @@
+{
+  "team": "mission-01-java-rescue-test-team",
+  "mission": "mission-01",
+  "score": 0,
+  "details": {
+    "build": 0,
+    "unit_tests": 0,
+    "startup": 0
+  },
+  "timestamp": "2026-04-03T05:42:55Z",
+  "commit": "d9326d2d7becffb7c6c5e56b50e1683b4058af9f"
+}
