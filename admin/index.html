@@ -465,8 +465,14 @@ function updateLock(){const e=document.getElementById('write-lock-badge');if(ghT
 async function triggerGrading(team){
   const missions=currentClassroom?.missions||[];
   let ok=0;
-  for(const m of missions){const r=await ghFetch('https://api.github.com/repos/'+ORG+'/'+team+'-'+m.id+'/actions/workflows/grading.yml/dispatches',ghToken,'POST',{ref:'main'});if(r.status===204)ok++;}
-  showToast(ok>0?team+': '+ok+'개 채점 트리거됨':'트리거 실패',ok>0?'success':'error');
+  for(const m of missions){
+    const wf='grade-'+m.id+'.yml';
+    const repo=ORG+'/'+team+'-'+m.id;
+    const r=await ghFetch('https://api.github.com/repos/'+repo+'/actions/workflows/'+wf+'/dispatches',ghToken,'POST',{ref:'main'});
+    if(r.status===204)ok++;
+    else console.warn('dispatch 실패 ('+r.status+'): '+repo+'/'+wf);
+  }
+  showToast(ok>0?team+': '+ok+'개 채점 트리거됨':'트리거 실패 — 팀 리포 이름과 토큰 권한 확인',ok>0?'success':'error');
   if(ok>0)setTimeout(loadRuns,3000);
 }
 
@@ -550,7 +556,8 @@ async function writeScore(team,missionId,score,source,note){
 function showSetupGuide(classroom){
   document.getElementById('setup-classroom-id').textContent=classroom.id;
   document.getElementById('setup-mission-snippets').innerHTML=classroom.missions.map(m=>{
-    const snippet='jobs:\n  grade:\n    uses: '+ORG+'/'+ADMIN_REPO+'/.github/workflows/grade-'+escHtml(m.id)+'.yml@main\n    with:\n      classroom: "'+escHtml(classroom.id)+'"\n      team_repo: ${{ github.repository }}\n      team_sha: ${{ github.sha }}\n    secrets: inherit';
+    const gradingWf=m.grading_workflow||('grade-java-rescue-'+m.id+'.yml');
+    const snippet='jobs:\n  grade:\n    uses: '+ORG+'/'+ADMIN_REPO+'/.github/workflows/'+escHtml(gradingWf)+'@main\n    with:\n      classroom: "'+escHtml(classroom.id)+'"\n      team_repo: ${{ github.repository }}\n      team_sha: ${{ github.sha }}\n    secrets: inherit';
     return '<div class="snippet-block">'
       +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">'+escHtml(m.name)+' — <code>'+escHtml(m.id)+'</code></div>'
       +'<pre class="code-snippet">'+snippet+'</pre>'
