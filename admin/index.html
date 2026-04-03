@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 GHCP HackFest — Admin Dashboard</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface2: #21262d;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #7d8590;
+            --primary: #238636;
+            --primary-hover: #2ea043;
+            --danger: #da3633;
+            --danger-hover: #f85149;
+            --warning: #d29922;
+            --info: #1f6feb;
+            --success: #3fb950;
+            --radius: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── 로그인 화면 ── */
+        #login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .login-card h1 { font-size: 20px; margin-bottom: 8px; }
+        .login-card p { color: var(--text-muted); margin-bottom: 24px; font-size: 14px; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 13px; margin-bottom: 6px; color: var(--text-muted); }
+        .form-group input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-group input:focus { border-color: var(--info); }
+
+        .permission-note {
+            background: #1c2a3a;
+            border: 1px solid var(--info);
+            border-radius: var(--radius);
+            padding: 12px;
+            font-size: 12px;
+            color: #79c0ff;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        /* ── 공통 버튼 ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background .2s, opacity .2s;
+            font-weight: 500;
+        }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-danger  { background: var(--danger); color: #fff; }
+        .btn-danger:hover:not(:disabled)  { background: var(--danger-hover); }
+        .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover:not(:disabled) { background: var(--border); }
+        .btn-full { width: 100%; justify-content: center; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        /* ── 대시보드 레이아웃 ── */
+        #dashboard { display: none; }
+
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
+        .topbar-title { font-weight: 600; font-size: 16px; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+        .org-badge {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .main-content { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+        /* ── 통계 카드 ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .stat-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: var(--text-muted); }
+
+        /* ── 섹션 ── */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .section-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .section-title { font-weight: 600; font-size: 15px; }
+        .section-body { padding: 20px; }
+
+        /* ── 테이블 ── */
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        td {
+            padding: 12px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,.02); }
+
+        .team-name { font-weight: 600; }
+        .score-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .score-high { background: rgba(63,185,80,.2); color: var(--success); }
+        .score-mid  { background: rgba(210,153,34,.2); color: var(--warning); }
+        .score-low  { background: rgba(218,54,51,.2);  color: var(--danger); }
+        .score-zero { background: var(--surface2); color: var(--text-muted); }
+
+        .mission-cell { display: flex; gap: 6px; flex-wrap: wrap; }
+        .mission-tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--surface2);
+            color: var(--text-muted);
+        }
+        .mission-tag.done { background: rgba(63,185,80,.15); color: var(--success); }
+
+        /* ── 워크플로우 상태 ── */
+        .run-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+        .run-status::before { font-size: 8px; }
+        .run-status.success { color: var(--success); }
+        .run-status.success::before { content: '●'; }
+        .run-status.failure { color: var(--danger); }
+        .run-status.failure::before { content: '●'; }
+        .run-status.in_progress { color: var(--warning); }
+        .run-status.in_progress::before { content: '◐'; }
+        .run-status.queued { color: var(--text-muted); }
+        .run-status.queued::before { content: '○'; }
+
+        /* ── 알림 토스트 ── */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 18px;
+            font-size: 14px;
+            display: none;
+            z-index: 9999;
+            max-width: 350px;
+            animation: slideIn .2s ease;
+        }
+        #toast.success { border-color: var(--success); color: var(--success); }
+        #toast.error   { border-color: var(--danger);  color: var(--danger); }
+        #toast.info    { border-color: var(--info);    color: #79c0ff; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* ── 빈 상태 ── */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* ── 로딩 ── */
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--text);
+            border-radius: 50%;
+            animation: spin .6s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── confirm 모달 ── */
+        #modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.6);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+        }
+        #modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+        }
+        .modal h3 { margin-bottom: 10px; }
+        .modal p  { color: var(--text-muted); font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+        .actions-cell { display: flex; gap: 6px; }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     로그인 화면
+════════════════════════════════════════ -->
+<div id="login-screen">
+    <div class="login-card">
+        <h1>🔐 HackFest Admin</h1>
+        <p>관리자 전용 대시보드입니다. GitHub Personal Access Token으로 로그인하세요.</p>
+
+        <div class="permission-note">
+            ℹ️ 필요한 토큰 권한:<br>
+            • <strong>repo</strong> — 팀 리포 접근 및 점수 파일 조작<br>
+            • <strong>workflow</strong> — 수동 채점 트리거<br>
+            <br>
+            토큰은 이 탭의 sessionStorage에만 저장되며, 탭을 닫으면 자동 삭제됩니다.
+        </div>
+
+        <div class="form-group">
+            <label>Organization</label>
+            <input type="text" id="input-org" value="ghcp-hackfest" placeholder="ghcp-hackfest">
+        </div>
+        <div class="form-group">
+            <label>GitHub Personal Access Token</label>
+            <input type="password" id="input-token" placeholder="github_pat_..." autocomplete="off">
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="login()">로그인</button>
+        <p id="login-error" style="color: var(--danger); font-size: 13px; margin-top: 12px; display: none;"></p>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     대시보드 화면
+════════════════════════════════════════ -->
+<div id="dashboard">
+    <div class="topbar">
+        <div class="topbar-left">
+            <span>🔐</span>
+            <span class="topbar-title">HackFest Admin</span>
+            <span class="org-badge" id="topbar-org"></span>
+        </div>
+        <div class="topbar-right">
+            <button class="btn btn-secondary btn-sm" onclick="refreshAll()">↻ 새로고침</button>
+            <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">↓ CSV</button>
+            <a class="btn btn-secondary btn-sm" id="leaderboard-link" href="#" target="_blank">리더보드 →</a>
+            <button class="btn btn-danger btn-sm" onclick="logout()">로그아웃</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+
+        <!-- 통계 카드 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-teams">—</div>
+                <div class="stat-label">참가 팀 수</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-runs">—</div>
+                <div class="stat-label">채점 실행 횟수</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-m01-done">—</div>
+                <div class="stat-label">Mission 01 완료 팀</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-m02-done">—</div>
+                <div class="stat-label">Mission 02 완료 팀</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-avg">—</div>
+                <div class="stat-label">팀 평균 총점</div>
+            </div>
+        </div>
+
+        <!-- 점수 테이블 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">📊 팀 점수 현황</span>
+                <button class="btn btn-danger btn-sm" onclick="confirmResetAll()">전체 초기화</button>
+            </div>
+            <div class="section-body" style="padding: 0;">
+                <div id="scores-container">
+                    <div class="empty-state">로딩 중... <span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 최근 워크플로우 실행 -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">⚙️ 최근 채점 실행 내역 (hackfest-admin)</span>
+                <a class="btn btn-secondary btn-sm"
+                   id="admin-actions-link" href="#" target="_blank">GitHub Actions →</a>
+            </div>
+            <div class="section-body" style="padding: 0;">
+                <div id="runs-container">
+                    <div class="empty-state">로딩 중... <span class="spinner"></span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ════ 확인 모달 ════ -->
+<div id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="modal-title"></h3>
+        <p id="modal-body"></p>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+            <button class="btn btn-danger" id="modal-confirm-btn">확인</button>
+        </div>
+    </div>
+</div>
+
+<!-- ════ Toast ════ -->
+<div id="toast"></div>
+
+<script>
+// ── 상태 ──────────────────────────────────────────────────
+const S = {
+    token: '',
+    org: '',
+    scores: {},       // { teamName: { 'mission-01': {...}, 'mission-02': {...} } }
+    allFiles: [],
+};
+
+const LEADERBOARD_REPO = 'hackfest-leaderboard';
+const ADMIN_REPO       = 'hackfest-admin';
+
+// ── 로그인 ─────────────────────────────────────────────────
+async function login() {
+    const token = document.getElementById('input-token').value.trim();
+    const org   = document.getElementById('input-org').value.trim();
+    if (!token || !org) { showLoginError('토큰과 Organization을 모두 입력하세요.'); return; }
+
+    // 토큰 유효성 간단 확인
+    const res = await ghFetch(`https://api.github.com/user`, token);
+    if (!res.ok) { showLoginError('토큰이 유효하지 않습니다. 권한을 확인하세요.'); return; }
+
+    S.token = token;
+    S.org   = org;
+    sessionStorage.setItem('hf_token', token);
+    sessionStorage.setItem('hf_org', org);
+
+    showDashboard();
+}
+
+function logout() {
+    sessionStorage.removeItem('hf_token');
+    sessionStorage.removeItem('hf_org');
+    S.token = ''; S.org = '';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+}
+
+function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+// ── 대시보드 초기화 ────────────────────────────────────────
+function showDashboard() {
+    document.getElementById('login-screen').style.display   = 'none';
+    document.getElementById('dashboard').style.display      = 'block';
+    document.getElementById('topbar-org').textContent       = S.org;
+    document.getElementById('leaderboard-link').href        = `https://${S.org}.github.io/${LEADERBOARD_REPO}/`;
+    document.getElementById('admin-actions-link').href      = `https://github.com/${S.org}/${ADMIN_REPO}/actions`;
+    refreshAll();
+}
+
+async function refreshAll() {
+    await Promise.all([loadScores(), loadRuns()]);
+}
+
+// ── 점수 로드 ──────────────────────────────────────────────
+async function loadScores() {
+    const apiBase = `https://api.github.com/repos/${S.org}/${LEADERBOARD_REPO}/contents/scores`;
+    const res = await ghFetch(apiBase, S.token);
+
+    if (!res.ok) {
+        document.getElementById('scores-container').innerHTML =
+            `<div class="empty-state">scores/ 디렉토리를 찾을 수 없습니다.<br>아직 채점이 한 번도 실행되지 않았을 수 있습니다.</div>`;
+        updateStats(0, 0, 0, 0);
+        return;
+    }
+
+    const files = await res.json();
+    S.allFiles = files;
+    S.scores = {};
+
+    const jsonFiles = files.filter(f => f.name.endsWith('.json'));
+
+    await Promise.all(jsonFiles.map(async (file) => {
+        const r = await ghFetch(file.url, S.token);
+        if (!r.ok) return;
+        const meta = await r.json();
+        const content = JSON.parse(atob(meta.content));
+        const team    = content.team;
+        const mission = content.mission;
+        if (!S.scores[team]) S.scores[team] = {};
+        S.scores[team][mission] = { ...content, fileSha: meta.sha, fileName: file.name };
+    }));
+
+    renderScoresTable();
+    updateStats(
+        Object.keys(S.scores).length,
+        jsonFiles.length,
+        Object.values(S.scores).filter(t => t['mission-01']).length,
+        Object.values(S.scores).filter(t => t['mission-02']).length
+    );
+}
+
+function renderScoresTable() {
+    const teams = Object.keys(S.scores).sort();
+    if (teams.length === 0) {
+        document.getElementById('scores-container').innerHTML =
+            `<div class="empty-state">아직 점수가 없습니다. 팀들이 push하면 자동으로 채점됩니다.</div>`;
+        return;
+    }
+
+    const rows = teams.map(team => {
+        const m01 = S.scores[team]['mission-01'];
+        const m02 = S.scores[team]['mission-02'];
+        const total = (m01?.score || 0) + (m02?.score || 0);
+
+        const scoreCls = total >= 200 ? 'score-high' : total >= 100 ? 'score-mid' : total > 0 ? 'score-low' : 'score-zero';
+
+        const m01Tag = m01
+            ? `<span class="mission-tag done">M01: ${m01.score}점</span>`
+            : `<span class="mission-tag">M01: —</span>`;
+        const m02Tag = m02
+            ? `<span class="mission-tag done">M02: ${m02.score}점</span>`
+            : `<span class="mission-tag">M02: —</span>`;
+
+        const lastTime = [m01?.timestamp, m02?.timestamp]
+            .filter(Boolean).sort().pop();
+        const timeStr = lastTime
+            ? new Date(lastTime).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
+            : '—';
+
+        return `<tr>
+            <td><span class="team-name">${escHtml(team)}</span></td>
+            <td><span class="score-badge ${scoreCls}">${total}점</span></td>
+            <td><div class="mission-cell">${m01Tag}${m02Tag}</div></td>
+            <td style="font-size:12px; color: var(--text-muted);">${timeStr}</td>
+            <td>
+                <div class="actions-cell">
+                    <button class="btn btn-secondary btn-sm"
+                        onclick="triggerGrading('${escHtml(team)}')">▶ 재채점</button>
+                    <button class="btn btn-danger btn-sm"
+                        onclick="confirmResetTeam('${escHtml(team)}')">✕ 초기화</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('scores-container').innerHTML = `
+        <table>
+            <thead><tr>
+                <th>팀</th><th>총점</th><th>미션별 점수</th><th>마지막 채점</th><th>액션</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+function updateStats(teams, runs, m01done, m02done) {
+    document.getElementById('stat-teams').textContent   = teams;
+    document.getElementById('stat-runs').textContent    = runs;
+    document.getElementById('stat-m01-done').textContent = m01done;
+    document.getElementById('stat-m02-done').textContent = m02done;
+
+    const totals = Object.values(S.scores).map(t =>
+        (t['mission-01']?.score || 0) + (t['mission-02']?.score || 0));
+    const avg = totals.length > 0 ? Math.round(totals.reduce((a, b) => a + b, 0) / totals.length) : 0;
+    document.getElementById('stat-avg').textContent = avg + '점';
+}
+
+// ── 워크플로우 실행 내역 ────────────────────────────────────
+async function loadRuns() {
+    const url = `https://api.github.com/repos/${S.org}/${ADMIN_REPO}/actions/runs?per_page=15`;
+    const res = await ghFetch(url, S.token);
+    if (!res.ok) {
+        document.getElementById('runs-container').innerHTML =
+            `<div class="empty-state">실행 내역을 불러올 수 없습니다. 토큰에 <code>workflow</code> 권한이 있는지 확인하세요.</div>`;
+        return;
+    }
+    const data = await res.json();
+    const runs = data.workflow_runs || [];
+
+    if (runs.length === 0) {
+        document.getElementById('runs-container').innerHTML =
+            `<div class="empty-state">아직 실행된 채점이 없습니다.</div>`;
+        return;
+    }
+
+    const rows = runs.map(run => {
+        const statusCls = run.conclusion || run.status;
+        const statusLabel = {
+            success: '✅ 성공', failure: '❌ 실패',
+            in_progress: '⏳ 진행중', queued: '🕐 대기중',
+            cancelled: '⊘ 취소'
+        }[statusCls] || statusCls;
+
+        const time = new Date(run.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+        const duration = run.updated_at
+            ? Math.round((new Date(run.updated_at) - new Date(run.created_at)) / 1000) + 's'
+            : '—';
+
+        return `<tr>
+            <td style="font-size:12px; color:var(--text-muted);">${run.id}</td>
+            <td>${escHtml(run.name || run.workflow_id)}</td>
+            <td><span class="run-status ${statusCls}">${statusLabel}</span></td>
+            <td style="font-size:12px; color:var(--text-muted);">${time}</td>
+            <td style="font-size:12px; color:var(--text-muted);">${duration}</td>
+            <td><a class="btn btn-secondary btn-sm" href="${run.html_url}" target="_blank">로그 →</a></td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('runs-container').innerHTML = `
+        <table>
+            <thead><tr>
+                <th>ID</th><th>워크플로우</th><th>상태</th><th>실행 시각</th><th>소요</th><th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+// ── 수동 채점 트리거 ───────────────────────────────────────
+async function triggerGrading(teamName) {
+    // 팀 리포 이름 추정 (Classroom은 보통 teamName-mission-01 형식)
+    // Mission 01, 02 둘 다 트리거
+    const repos = [
+        `${teamName}-mission-01`,
+        `${teamName}-mission-02`
+    ];
+
+    let triggered = 0;
+    for (const repo of repos) {
+        const url = `https://api.github.com/repos/${S.org}/${repo}/actions/workflows/grading.yml/dispatches`;
+        const res = await ghFetch(url, S.token, 'POST', { ref: 'main' });
+        if (res.status === 204) triggered++;
+    }
+
+    if (triggered > 0) {
+        showToast(`${teamName}: ${triggered}개 채점 워크플로우 트리거됨`, 'success');
+        setTimeout(loadRuns, 3000);
+    } else {
+        showToast(`트리거 실패: 팀 리포를 찾을 수 없거나 workflow 권한 부족`, 'error');
+    }
+}
+
+// ── 점수 초기화 ────────────────────────────────────────────
+function confirmResetTeam(teamName) {
+    openModal(
+        `"${teamName}" 점수 초기화`,
+        `${teamName} 팀의 모든 미션 점수를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`,
+        () => resetTeam(teamName)
+    );
+}
+
+function confirmResetAll() {
+    openModal(
+        '전체 점수 초기화',
+        '모든 팀의 모든 미션 점수를 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+        resetAll
+    );
+}
+
+async function resetTeam(teamName) {
+    const missions = S.scores[teamName] || {};
+    let deleted = 0;
+    for (const missionData of Object.values(missions)) {
+        const ok = await deleteScoreFile(missionData.fileName, missionData.fileSha);
+        if (ok) deleted++;
+    }
+    showToast(`${teamName}: ${deleted}개 점수 파일 삭제됨`, deleted > 0 ? 'success' : 'error');
+    await loadScores();
+}
+
+async function resetAll() {
+    const jsonFiles = S.allFiles.filter(f => f.name.endsWith('.json'));
+    let deleted = 0;
+    for (const file of jsonFiles) {
+        // SHA 재조회 필요
+        const r = await ghFetch(file.url, S.token);
+        if (!r.ok) continue;
+        const meta = await r.json();
+        const ok = await deleteScoreFile(file.name, meta.sha);
+        if (ok) deleted++;
+    }
+    showToast(`${deleted}개 파일 삭제됨`, 'success');
+    await loadScores();
+}
+
+async function deleteScoreFile(fileName, sha) {
+    const url = `https://api.github.com/repos/${S.org}/${LEADERBOARD_REPO}/contents/scores/${fileName}`;
+    const res = await ghFetch(url, S.token, 'DELETE', {
+        message: `admin: reset score ${fileName}`,
+        sha: sha
+    });
+    return res.status === 200;
+}
+
+// ── CSV 다운로드 ────────────────────────────────────────────
+function downloadCSV() {
+    const teams = Object.keys(S.scores).sort();
+    if (teams.length === 0) { showToast('다운로드할 점수가 없습니다.', 'error'); return; }
+
+    const rows = [['팀명', 'Mission01', 'Mission02', '총점', '마지막 채점']];
+    teams.forEach(team => {
+        const m01 = S.scores[team]['mission-01']?.score || 0;
+        const m02 = S.scores[team]['mission-02']?.score || 0;
+        const ts  = [S.scores[team]['mission-01']?.timestamp, S.scores[team]['mission-02']?.timestamp]
+            .filter(Boolean).sort().pop() || '';
+        rows.push([team, m01, m02, m01 + m02, ts]);
+    });
+
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `hackfest-scores-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV 다운로드 완료', 'success');
+}
+
+// ── 유틸 ──────────────────────────────────────────────────
+async function ghFetch(url, token, method = 'GET', body = null) {
+    const opts = {
+        method,
+        headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+        }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(url, opts);
+}
+
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+let toastTimer;
+function showToast(msg, type = 'info') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = type;
+    el.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+let _modalCallback = null;
+function openModal(title, body, onConfirm) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-body').textContent  = body;
+    _modalCallback = onConfirm;
+    document.getElementById('modal-overlay').classList.add('active');
+    document.getElementById('modal-confirm-btn').onclick = () => {
+        closeModal();
+        onConfirm();
+    };
+}
+function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('active');
+}
+
+// ── 자동 로그인 (sessionStorage 복원) ──────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    const t = sessionStorage.getItem('hf_token');
+    const o = sessionStorage.getItem('hf_org');
+    if (t && o) {
+        S.token = t; S.org = o;
+        document.getElementById('input-token').value = t;
+        document.getElementById('input-org').value   = o;
+        showDashboard();
+    }
+});
+</script>
+</body>
+</html>
