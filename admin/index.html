@@ -77,6 +77,17 @@
         .modal-box select:focus{border-color:var(--info)}
         .mission-radio-list label{display:flex;align-items:center;gap:8px;padding:9px 12px;margin:4px 0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:border-color .15s}
         .mission-radio-list label:hover{border-color:var(--info)}
+        .mission-list-box{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:40px}
+        .mission-row{display:grid;grid-template-columns:110px 1fr 68px 26px;gap:6px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border)}
+        .mission-row:last-child{border-bottom:none}
+        .mission-row input{background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);padding:4px 7px;font-size:12px;outline:none;width:100%;box-sizing:border-box}
+        .mission-row input:focus{border-color:var(--info)}
+        .btn-remove-row{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;line-height:1}
+        .btn-remove-row:hover{color:var(--danger);background:rgba(218,54,51,.1)}
+        .nc-template-row{display:flex;gap:8px;align-items:center}
+        .nc-template-row select{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:8px 10px;font-size:13px;outline:none}
+        .nc-template-row select:focus{border-color:var(--info)}
+        .mission-col-header{display:grid;grid-template-columns:110px 1fr 68px 26px;gap:6px;padding:5px 10px;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02)}
         .code-snippet{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;overflow-x:auto;color:#79c0ff;margin-bottom:6px;white-space:pre;font-family:monospace;line-height:1.6}
         .snippet-block{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
         .snippet-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
@@ -164,8 +175,16 @@
     <div class="form-group"><label>GitHub Classroom URL <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
       <input type="url" id="nc-classroom-url" placeholder="https://classroom.github.com/classrooms/...">
     </div>
-    <div class="form-group"><label>미션 목록 (한 줄에 하나: <code>id,이름,최대점수</code>)</label>
-      <textarea id="nc-missions" rows="4" placeholder="mission-01,☕ Java Rescue,100&#10;mission-02,🔐 Security Fix,150"></textarea>
+    <div class="form-group"><label>Workshop Template <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
+      <div class="nc-template-row">
+        <select id="nc-template"><option value="">— 템플릿 선택 —</option></select>
+        <button class="btn btn-secondary btn-sm" onclick="loadTemplateMissions()" id="nc-tpl-btn">🔄 불러오기</button>
+      </div>
+    </div>
+    <div class="form-group"><label>미션 목록 <span style="color:var(--danger)">*</span></label>
+      <div class="mission-col-header"><span>ID</span><span>이름</span><span>최대점수</span><span></span></div>
+      <div id="nc-mission-list" class="mission-list-box"></div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="addMissionRow()">+ 미션 추가</button>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeNewClassroomModal()">취소</button>
@@ -325,32 +344,98 @@ async function selectClassroom(classroom){
 }
 
 function showNewClassroomModal(){
+  populateTemplateDropdown();
+  const box=document.getElementById('nc-mission-list');
+  if(!box.children.length)addMissionRow();
   document.getElementById('new-classroom-overlay').classList.add('active');
   setTimeout(()=>document.getElementById('nc-name').focus(),100);
 }
 function closeNewClassroomModal(){document.getElementById('new-classroom-overlay').classList.remove('active');}
+
+async function populateTemplateDropdown(){
+  const sel=document.getElementById('nc-template');if(!sel)return;
+  const known=new Set();
+  classrooms.forEach(c=>c.missions.forEach(m=>{if(m.template_repo)known.add(m.template_repo);}));
+  if(ghToken){
+    try{
+      const res=await ghFetch('https://api.github.com/orgs/'+ORG+'/repos?type=all&per_page=100',ghToken);
+      if(res.ok){const repos=await res.json();repos.filter(r=>r.is_template||r.name.endsWith('-template')).forEach(r=>known.add(r.name));}
+    }catch(e){}
+  }
+  sel.innerHTML='<option value="">— 템플릿 선택 —</option>'+[...known].map(t=>'<option value="'+escHtml(t)+'">'+escHtml(t)+'</option>').join('');
+}
+
+async function loadTemplateMissions(){
+  const tpl=document.getElementById('nc-template').value;if(!tpl)return;
+  // 1차: classrooms.json에서 알려진 미션 검색
+  const known=[];classrooms.forEach(c=>c.missions.forEach(m=>{if(m.template_repo===tpl&&!known.find(x=>x.id===m.id))known.push(m);}));
+  if(known.length){renderMissionRows(known);return;}
+  // 2차: GitHub API로 템플릿 레포 디렉토리 탐색
+  const btn=document.getElementById('nc-tpl-btn');const orig=btn.textContent;btn.textContent='로딩...';btn.disabled=true;
+  try{
+    const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+tpl+'/contents',ghToken||'');
+    if(res.ok){
+      const items=await res.json();
+      const dirs=items.filter(i=>i.type==='dir'&&/^mission-/.test(i.name));
+      const ws=tpl.replace(/-workshop-template$/,'').replace(/-template$/,'');
+      const missions=dirs.map(d=>{
+        const mId=(d.name.match(/^(mission-\d+)/)||[])[1]||d.name;
+        const rest=d.name.replace(/^mission-\d+-/,'').split('-');
+        const mName=rest.map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')||mId;
+        return{id:mId,name:mName,max_score:100,template_repo:tpl,grading_workflow:'grade-'+ws+'-'+mId+'.yml'};
+      });
+      if(missions.length){renderMissionRows(missions);return;}
+    }
+  }catch(e){}
+  finally{btn.textContent=orig;btn.disabled=false;}
+  showToast('미션을 자동으로 가져오지 못했습니다. 직접 추가하세요.','info');
+}
+
+function renderMissionRows(missions){
+  document.getElementById('nc-mission-list').innerHTML='';
+  missions.forEach(m=>addMissionRow(m.id,m.name,m.max_score));
+}
+
+function addMissionRow(id='',name='',maxScore=100){
+  const box=document.getElementById('nc-mission-list');
+  const row=document.createElement('div');row.className='mission-row';
+  row.innerHTML='<input class="inp-id" type="text" value="'+escHtml(String(id))+'" placeholder="mission-01">'
+    +'<input class="inp-name" type="text" value="'+escHtml(String(name))+'" placeholder="미션 이름">'
+    +'<input class="inp-score" type="number" value="'+escHtml(String(maxScore))+'" min="1" max="9999">'
+    +'<button class="btn-remove-row" onclick="this.closest(\'.mission-row\').remove()" title="삭제">✕</button>';
+  box.appendChild(row);
+}
+
+function getMissionRows(){
+  const tpl=document.getElementById('nc-template')?.value||'';
+  const ws=tpl?tpl.replace(/-workshop-template$/,'').replace(/-template$/,''):'';
+  return[...document.querySelectorAll('#nc-mission-list .mission-row')].map((row,i)=>{
+    const id=row.querySelector('.inp-id').value.trim()||('mission-0'+(i+1));
+    const name=row.querySelector('.inp-name').value.trim()||('Mission '+(i+1));
+    const max_score=parseInt(row.querySelector('.inp-score').value)||100;
+    const entry={id,name,max_score};
+    if(tpl){entry.template_repo=tpl;entry.grading_workflow='grade-'+ws+'-'+id+'.yml';}
+    return entry;
+  });
+}
 
 async function createClassroom(){
   const name=document.getElementById('nc-name').value.trim();
   const id=document.getElementById('nc-id').value.trim();
   const org=document.getElementById('nc-org').value.trim()||ORG;
   const classroomUrl=document.getElementById('nc-classroom-url').value.trim();
-  const mText=document.getElementById('nc-missions').value.trim();
+  const missions=getMissionRows();
   if(!name||!id){showToast('이름과 ID는 필수입니다','error');return;}
   if(!/^[a-z0-9-]+$/.test(id)){showToast('ID는 소문자, 숫자, -만 가능합니다','error');return;}
   if(classrooms.find(c=>c.id===id)){showToast('이미 존재하는 Classroom ID입니다','error');return;}
-  const missions=mText.split('\n').filter(Boolean).map((line,i)=>{
-    const p=line.split(',').map(s=>s.trim());
-    return{id:p[0]||('mission-0'+(i+1)),name:p[1]||('Mission '+(i+1)),max_score:parseInt(p[2])||100};
-  });
-  if(!missions.length){showToast('미션을 1개 이상 입력하세요','error');return;}
+  if(!missions.length){showToast('미션을 1개 이상 추가하세요','error');return;}
   const entry={id,name,org,...(classroomUrl&&{classroom_url:classroomUrl}),missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
   const ok=await saveClassrooms([...classrooms,entry]);
   if(!ok)return;
   await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+id+'/.gitkeep',ghToken,'PUT',{message:'init: scores folder for '+id,content:btoa('')});
   classrooms=[...classrooms,entry];
   closeNewClassroomModal();
-  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-org').value='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-missions').value='';
+  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-org').value='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-mission-list').innerHTML='';document.getElementById('nc-template').value='';
   await loadClassrooms();
   await selectClassroom(entry);
   showSetupGuide(entry);
