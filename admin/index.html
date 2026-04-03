@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Copilot HackFest Admin</title>
+    <style>
+        :root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text-muted:#7d8590;--primary:#238636;--primary-hover:#2ea043;--danger:#da3633;--danger-hover:#f85149;--warning:#d29922;--info:#1f6feb;--success:#3fb950;--radius:8px}
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+        #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+        .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;width:100%;max-width:400px}
+        .login-card h1{font-size:22px;margin-bottom:6px}
+        .login-card .subtitle{color:var(--text-muted);font-size:14px;margin-bottom:28px}
+        .form-group{margin-bottom:16px}
+        .form-group label{display:block;font-size:13px;margin-bottom:6px;color:var(--text-muted)}
+        .form-group input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 12px;font-size:14px;outline:none;transition:border-color .2s}
+        .form-group input:focus{border-color:var(--info)}
+        #login-error{color:var(--danger);font-size:13px;margin-top:10px;display:none}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:none;font-size:14px;cursor:pointer;transition:background .2s,opacity .2s;font-weight:500;text-decoration:none}
+        .btn:disabled{opacity:.5;cursor:not-allowed}
+        .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+        .btn-danger{background:var(--danger);color:#fff}.btn-danger:hover:not(:disabled){background:var(--danger-hover)}
+        .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover:not(:disabled){background:var(--border)}
+        .btn-full{width:100%;justify-content:center}.btn-sm{padding:4px 10px;font-size:12px}
+        #dashboard{display:none}
+        .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+        .topbar-left{display:flex;align-items:center;gap:10px}.topbar-title{font-weight:600;font-size:16px}
+        .topbar-icon{width:28px;height:28px;border-radius:50%;object-fit:cover}
+        .topbar-right{display:flex;align-items:center;gap:10px}
+        .org-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text-muted)}
+        .main-content{padding:24px;max-width:1200px;margin:0 auto}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+        .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+        .stat-value{font-size:28px;font-weight:700;margin-bottom:4px}.stat-label{font-size:12px;color:var(--text-muted)}
+        .section{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+        .section-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+        .section-title{font-weight:600;font-size:15px}
+        table{width:100%;border-collapse:collapse;font-size:14px}
+        th{text-align:left;padding:10px 12px;font-size:12px;color:var(--text-muted);border-bottom:1px solid var(--border);font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+        td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle}
+        tr:last-child td{border-bottom:none}
+        tr:hover td{background:rgba(255,255,255,.02)}
+        .score-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+        .score-high{background:rgba(63,185,80,.2);color:var(--success)}.score-mid{background:rgba(210,153,34,.2);color:var(--warning)}
+        .score-low{background:rgba(218,54,51,.2);color:var(--danger)}.score-zero{background:var(--surface2);color:var(--text-muted)}
+        .mission-cell{display:flex;gap:6px;flex-wrap:wrap}
+        .mission-tag{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--surface2);color:var(--text-muted)}
+        .mission-tag.done{background:rgba(63,185,80,.15);color:var(--success)}
+        .run-status{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+        .run-status.success{color:var(--success)}.run-status.failure{color:var(--danger)}.run-status.in_progress{color:var(--warning)}.run-status.queued{color:var(--text-muted)}
+        #toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 18px;font-size:14px;display:none;z-index:9999;max-width:350px}
+        #toast.success{border-color:var(--success);color:var(--success)}#toast.error{border-color:var(--danger);color:var(--danger)}#toast.info{border-color:var(--info);color:#79c0ff}
+        .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+        .overlay.active{display:flex}
+        .modal-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:500px;width:90%}
+        .modal-box h3{margin-bottom:10px}.modal-box p{color:var(--text-muted);font-size:14px;margin-bottom:20px;line-height:1.5}
+        .modal-box .note{color:var(--text-muted);font-size:13px;margin-bottom:16px;line-height:1.5}
+        .modal-actions{display:flex;gap:10px;justify-content:flex-end}
+        .actions-cell{display:flex;gap:4px;flex-wrap:wrap}
+        .write-lock{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:3px 10px}
+        .write-lock.unlocked{color:var(--success);border-color:var(--success);background:rgba(63,185,80,.1)}
+        .empty-state{text-align:center;padding:40px;color:var(--text-muted);font-size:14px}
+        .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--text);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .classroom-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+        .classroom-tabs-label{font-size:12px;color:var(--text-muted);margin-right:4px;align-self:center}
+        .btn-classroom{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border)}.btn-classroom:hover{border-color:var(--info);color:var(--text)}
+        .btn-classroom.active-classroom{border-color:var(--info);color:#79c0ff;background:rgba(31,111,235,.15)}
+        .org-badge.live{background:rgba(63,185,80,.15);border-color:var(--success);color:var(--success)}
+        .org-badge.archived{background:rgba(210,153,34,.15);border-color:var(--warning);color:var(--warning)}
+        .form-group textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 12px;font-size:13px;outline:none;resize:vertical;font-family:monospace}
+        .form-group textarea:focus{border-color:var(--info)}
+        .btn-success{background:rgba(63,185,80,.9);color:#0d1117}.btn-success:hover:not(:disabled){background:var(--success)}
+        .btn-warning{background:rgba(210,153,34,.85);color:#0d1117}.btn-warning:hover:not(:disabled){background:var(--warning)}
+        .modal-box select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 12px;font-size:14px;outline:none;transition:border-color .2s;cursor:pointer;-webkit-appearance:none}
+        .modal-box select:focus{border-color:var(--info)}
+        .mission-radio-list label{display:flex;align-items:center;gap:8px;padding:9px 12px;margin:4px 0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;transition:border-color .15s}
+        .mission-radio-list label:hover{border-color:var(--info)}
+        .code-snippet{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;overflow-x:auto;color:#79c0ff;margin-bottom:6px;white-space:pre;font-family:monospace;line-height:1.6}
+        .snippet-block{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+        .snippet-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1 style="display:flex;align-items:center;gap:10px"><img src="../github_copilot_icon.png" alt="Copilot" style="width:36px;height:36px;border-radius:50%;object-fit:cover"> GitHub Copilot HackFest</h1>
+    <p class="subtitle">관리자 전용 대시보드입니다.</p>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="input-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="login()">로그인</button>
+    <p id="login-error">비밀번호가 올바르지 않습니다.</p>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <img src="../github_copilot_icon.png" alt="Copilot" class="topbar-icon">
+      <span class="topbar-title">GitHub Copilot HackFest</span>
+      <span class="org-badge" id="classroom-status-indicator">로딩중...</span>
+    </div>
+    <div class="topbar-right">
+      <button class="btn btn-primary btn-sm" onclick="requireToken(showNewClassroomModal)">&#x2B; New Classroom</button>
+      <button class="btn btn-secondary btn-sm" onclick="requireToken(confirmArchiveClassroom)">&#x1F4E6; Classroom 아카이브</button>
+      <button class="btn btn-secondary btn-sm" onclick="refreshAll()">&#x21BB; 새로고침</button>
+      <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">&#x2193; CSV</button>
+      <a class="btn btn-secondary btn-sm" href="https://ghcp-hackfest.github.io/hackfest-leaderboard/" target="_blank">리더보드 &#x2192;</a>
+      <button class="btn btn-secondary btn-sm" id="write-lock-badge" onclick="promptToken()">&#x1F512; 토큰 입력</button>
+      <button class="btn btn-danger btn-sm" onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+  <div class="main-content">
+    <!-- Classroom 전환 탭 -->
+    <div class="classroom-tabs" id="classroom-tabs">
+      <span class="classroom-tabs-label">Classroom:</span>
+      <span style="color:var(--text-muted);font-size:13px">로딩 중...</span>
+    </div>
+    <!-- 통계 -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value" id="stat-teams">—</div><div class="stat-label">참가 팀 수</div></div>
+      <div class="stat-card"><div class="stat-value" id="stat-submissions">—</div><div class="stat-label">제출 횟수</div></div>
+      <!-- 미션별 완료 수 (JS가 동적으로 생성) -->
+      <div id="mission-stats-dynamic" style="display:contents"></div>
+      <div class="stat-card"><div class="stat-value" id="stat-avg">—</div><div class="stat-label">팀 평균 총점</div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">&#x1F4CA; 팀 점수 현황</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-danger btn-sm" onclick="requireToken(confirmResetAll)">&#x2715; 전체 초기화</button>
+        </div>
+      </div>
+      <div id="scores-container"><div class="empty-state"><span class="spinner"></span></div></div>
+    </div>
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">&#x2699; 최근 채점 실행 내역</span>
+        <a class="btn btn-secondary btn-sm" href="https://github.com/ghcp-hackfest/hackfest-admin/actions" target="_blank">GitHub Actions &#x2192;</a>
+      </div>
+      <div id="runs-container"><div class="empty-state"><span class="spinner"></span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- New Classroom Modal -->
+<div id="new-classroom-overlay" class="overlay" onclick="closeNewClassroomModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>&#x1F393; New Classroom</h3>
+    <p class="note">새 이벤트/고객사 Classroom을 생성합니다.<br>생성 후 각 미션 템플릿의 <code>classroom</code> 값을 이 ID로 교체하세요.</p>
+    <div class="form-group"><label>이름 <span style="color:var(--danger)">*</span></label>
+      <input type="text" id="nc-name" placeholder="ACME Corp HackFest">
+    </div>
+    <div class="form-group"><label>ID (소문자, 숫자, - 만 허용) <span style="color:var(--danger)">*</span></label>
+      <input type="text" id="nc-id" placeholder="acme-2026-04">
+    </div>
+    <div class="form-group"><label>GitHub Org</label>
+      <input type="text" id="nc-org" placeholder="ghcp-hackfest">
+    </div>
+    <div class="form-group"><label>GitHub Classroom URL <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
+      <input type="url" id="nc-classroom-url" placeholder="https://classroom.github.com/classrooms/...">
+    </div>
+    <div class="form-group"><label>미션 목록 (한 줄에 하나: <code>id,이름,최대점수</code>)</label>
+      <textarea id="nc-missions" rows="4" placeholder="mission-01,☕ Java Rescue,100&#10;mission-02,🔐 Security Fix,150"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeNewClassroomModal()">취소</button>
+      <button class="btn btn-primary" onclick="createClassroom()">생성</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay" class="overlay" onclick="closeModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3 id="modal-title"></h3>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">취소</button>
+      <button class="btn btn-danger" id="modal-confirm-btn">확인</button>
+    </div>
+  </div>
+</div>
+
+<div id="token-overlay" class="overlay" onclick="closeTokenModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>&#x1F511; GitHub Token</h3>
+    <p class="note">
+      점수 삭제·재채점은 GitHub Token이 필요합니다.<br>
+      권한: <code>repo</code> + <code>workflow</code><br>
+      Token은 메모리에만 저장되며 페이지를 닫으면 삭제됩니다.
+    </p>
+    <div class="form-group">
+      <input type="password" id="input-token" placeholder="github_pat_..." autocomplete="off" onkeydown="if(event.key==='Enter')submitToken()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeTokenModal()">취소</button>
+      <button class="btn btn-primary" onclick="submitToken()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ Success Modal -->
+<div id="success-overlay" class="overlay" onclick="closeSuccessModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>&#x2705; 성공 처리</h3>
+    <p class="note"><strong id="success-team-name"></strong> 팀의 미션을 최대 점수로 처리합니다.</p>
+    <div class="form-group">
+      <label>미션 선택</label>
+      <div id="success-mission-list" class="mission-radio-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeSuccessModal()">취소</button>
+      <button class="btn btn-success" onclick="confirmMarkSuccess()">&#x2705; 성공 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✏️ Manual Score Modal -->
+<div id="manual-score-overlay" class="overlay" onclick="closeManualScoreModal()">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>&#x270F; 수동 점수 입력</h3>
+    <p class="note"><strong id="manual-score-team-name"></strong> 팀의 점수를 수동으로 설정합니다.<br>기존 점수가 있으면 덮어씁니다.</p>
+    <div class="form-group">
+      <label>미션</label>
+      <select id="manual-score-mission"></select>
+    </div>
+    <div class="form-group">
+      <label>점수 <span id="manual-score-max" style="color:var(--text-muted);font-size:12px;font-weight:400"></span></label>
+      <input type="number" id="manual-score-value" min="0" placeholder="0">
+    </div>
+    <div class="form-group">
+      <label>메모 (선택)</label>
+      <input type="text" id="manual-score-note" placeholder="수동 처리 사유...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeManualScoreModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveManualScore()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🎉 Classroom Setup Guide Modal -->
+<div id="setup-guide-overlay" class="overlay" onclick="closeSetupGuide()">
+  <div class="modal-box" style="max-width:640px" onclick="event.stopPropagation()">
+    <h3>&#x1F389; Classroom 생성 완료!</h3>
+    <p class="note">각 미션 템플릿 리포의 <code>.github/workflows/grading.yml</code>을 아래 내용으로 설정하세요.</p>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div><span style="font-size:12px;color:var(--text-muted)">Classroom ID: </span><code id="setup-classroom-id" style="color:#79c0ff;font-size:14px;user-select:all"></code></div>
+      <button class="btn btn-secondary btn-sm" onclick="copySetupId()">복사</button>
+    </div>
+    <div id="setup-mission-snippets"></div>
+    <div class="modal-actions" style="margin-top:4px">
+      <button class="btn btn-primary" onclick="closeSetupGuide()">확인</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const ORG='ghcp-hackfest',LB_REPO='hackfest-leaderboard',ADMIN_REPO='hackfest-admin',CLASSROOMS_FILE='classrooms.json';
+const HASH_URL='https://raw.githubusercontent.com/'+ORG+'/'+LB_REPO+'/main/admin/password-hash.txt';
+let ghToken='',classrooms=[],currentClassroom=null,scores={},allFiles=[],tokenCb=null;
+
+async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+
+async function login(){
+  const pw=document.getElementById('input-password').value;
+  const err=document.getElementById('login-error');
+  if(!pw)return;
+  let stored;
+  try{const r=await fetch(HASH_URL+'?t='+Date.now());stored=(await r.text()).trim();}
+  catch{stored='8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';}
+  if(await sha256(pw)===stored){err.style.display='none';sessionStorage.setItem('hf_auth','1');showDashboard();}
+  else{err.style.display='block';}
+}
+
+function logout(){sessionStorage.removeItem('hf_auth');ghToken='';document.getElementById('dashboard').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('input-password').value='';updateLock();}
+
+async function showDashboard(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  await loadClassrooms();
+}
+async function refreshAll(){await Promise.all([loadScores(),loadRuns()]);}
+
+// ── Classroom 관리 ────────────────────────────────────────────
+async function loadClassrooms(){
+  try{
+    const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+CLASSROOMS_FILE);
+    if(!res.ok)throw new Error(res.status);
+    const meta=await res.json();
+    classrooms=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g,'')),c=>c.charCodeAt(0))));
+  }catch(e){classrooms=[];}
+  renderClassroomTabs(classrooms);
+  const active=classrooms.find(c=>c.status==='active')||classrooms[0]||null;
+  if(active)await selectClassroom(active);
+  else{document.getElementById('scores-container').innerHTML='<div class="empty-state">Classroom이 없습니다. New Classroom 버튼으로 생성하세요.</div>';updateStats(0,0,{},0);}
+  await loadRuns();
+}
+
+function renderClassroomTabs(cls){
+  const container=document.getElementById('classroom-tabs');
+  if(!cls||!cls.length){container.innerHTML='<span class="classroom-tabs-label">Classroom:</span><span style="color:var(--text-muted);font-size:13px">없음</span>';return;}
+  container.innerHTML='<span class="classroom-tabs-label">Classroom:</span>'+cls.map(c=>`
+    <button class="btn btn-classroom btn-sm ${currentClassroom?.id===c.id?'active-classroom':''}" onclick="selectClassroomById('${escHtml(c.id)}')">
+      ${c.status==='archived'?'📦':'🎮'} ${escHtml(c.name)}
+      ${c.status==='archived'?'<span style="font-size:10px;opacity:.6;margin-left:3px">(종료)</span>':''}
+    </button>
+    ${c.classroom_url?`<a class="btn btn-secondary btn-sm" href="${escHtml(c.classroom_url)}" target="_blank" title="GitHub Classroom 열기" style="padding:2px 7px">🔗</a>`:''}`).join('');
+}
+
+async function selectClassroomById(id){const c=classrooms.find(x=>x.id===id);if(c)await selectClassroom(c);}
+
+async function selectClassroom(classroom){
+  currentClassroom=classroom;scores={};allFiles=[];
+  renderClassroomTabs(classrooms);
+  const si=document.getElementById('classroom-status-indicator');
+  if(si){si.textContent=classroom.status==='archived'?'📦 '+classroom.name+' (종료)':'🎮 '+classroom.name;si.className='org-badge '+(classroom.status==='archived'?'archived':'live');}
+  await loadScores();
+}
+
+function showNewClassroomModal(){
+  document.getElementById('new-classroom-overlay').classList.add('active');
+  setTimeout(()=>document.getElementById('nc-name').focus(),100);
+}
+function closeNewClassroomModal(){document.getElementById('new-classroom-overlay').classList.remove('active');}
+
+async function createClassroom(){
+  const name=document.getElementById('nc-name').value.trim();
+  const id=document.getElementById('nc-id').value.trim();
+  const org=document.getElementById('nc-org').value.trim()||ORG;
+  const classroomUrl=document.getElementById('nc-classroom-url').value.trim();
+  const mText=document.getElementById('nc-missions').value.trim();
+  if(!name||!id){showToast('이름과 ID는 필수입니다','error');return;}
+  if(!/^[a-z0-9-]+$/.test(id)){showToast('ID는 소문자, 숫자, -만 가능합니다','error');return;}
+  if(classrooms.find(c=>c.id===id)){showToast('이미 존재하는 Classroom ID입니다','error');return;}
+  const missions=mText.split('\n').filter(Boolean).map((line,i)=>{
+    const p=line.split(',').map(s=>s.trim());
+    return{id:p[0]||('mission-0'+(i+1)),name:p[1]||('Mission '+(i+1)),max_score:parseInt(p[2])||100};
+  });
+  if(!missions.length){showToast('미션을 1개 이상 입력하세요','error');return;}
+  const entry={id,name,org,...(classroomUrl&&{classroom_url:classroomUrl}),missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
+  const ok=await saveClassrooms([...classrooms,entry]);
+  if(!ok)return;
+  await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+id+'/.gitkeep',ghToken,'PUT',{message:'init: scores folder for '+id,content:btoa('')});
+  classrooms=[...classrooms,entry];
+  closeNewClassroomModal();
+  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-org').value='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-missions').value='';
+  await loadClassrooms();
+  await selectClassroom(entry);
+  showSetupGuide(entry);
+  showToast('Classroom "'+name+'" 생성됨','success');
+}
+
+function confirmArchiveClassroom(){
+  if(!currentClassroom){showToast('Classroom을 선택하세요','error');return;}
+  if(currentClassroom.status==='archived'){showToast('이미 아카이브됨','info');return;}
+  openModal('"'+currentClassroom.name+'" 아카이브','이 Classroom을 아카이브합니다. 점수는 보존되며 신규 채점은 비활성화됩니다.',archiveClassroom);
+}
+
+async function archiveClassroom(){
+  if(!currentClassroom)return;
+  const updated=classrooms.map(c=>c.id===currentClassroom.id?{...c,status:'archived',archived_at:new Date().toISOString().slice(0,10)}:c);
+  const ok=await saveClassrooms(updated);
+  if(!ok)return;
+  classrooms=updated;
+  currentClassroom=classrooms.find(c=>c.id===currentClassroom.id);
+  renderClassroomTabs(classrooms);
+  await selectClassroom(currentClassroom);
+  showToast(currentClassroom.name+' 아카이브됨','success');
+}
+
+async function saveClassrooms(data){
+  const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+CLASSROOMS_FILE,ghToken);
+  let sha='';if(res.ok){const m=await res.json();sha=m.sha||'';}
+  const body={message:'admin: update classrooms.json',content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2)+'\n')))};
+  if(sha)body.sha=sha;
+  const r=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+CLASSROOMS_FILE,ghToken,'PUT',body);
+  if(!r.ok){showToast('classrooms.json 저장 실패','error');return false;}
+  return true;
+}
+
+// ── 점수 로드 ────────────────────────────────────────────────
+async function loadScores(){
+  if(!currentClassroom)return;
+  const cid=currentClassroom.id;
+  const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+cid);
+  if(!res.ok){document.getElementById('scores-container').innerHTML='<div class="empty-state">아직 채점된 점수가 없습니다.</div>';updateStats(0,0,{},0);return;}
+  const files=await res.json();allFiles=files;scores={};
+  const jf=files.filter(f=>f.name.endsWith('.json'));
+  await Promise.all(jf.map(async f=>{
+    const r=await ghFetch(f.url);if(!r.ok)return;
+    const meta=await r.json();const c=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g,'')),b=>b.charCodeAt(0))));
+    if(!scores[c.team])scores[c.team]={};
+    scores[c.team][c.mission]={...c,fileSha:meta.sha,fileName:f.name};
+  }));
+  renderTable();
+  const missions=currentClassroom.missions||[];
+  const teams=Object.keys(scores);
+  const mCounts={};missions.forEach(m=>mCounts[m.id]=teams.filter(t=>scores[t][m.id]).length);
+  const tots=teams.map(t=>missions.reduce((s,m)=>s+(scores[t][m.id]?.score||0),0));
+  const avg=tots.length?Math.round(tots.reduce((a,b)=>a+b,0)/tots.length):0;
+  updateStats(teams.length,jf.length,mCounts,avg);
+}
+
+function renderTable(){
+  const teams=Object.keys(scores).sort();
+  const missions=currentClassroom?.missions||[];
+  if(!teams.length){document.getElementById('scores-container').innerHTML='<div class="empty-state">점수 데이터가 없습니다.</div>';return;}
+  const rows=teams.map(t=>{
+    const tot=missions.reduce((s,m)=>s+(scores[t][m.id]?.score||0),0);
+    const cls=tot>=200?'score-high':tot>=100?'score-mid':tot>0?'score-low':'score-zero';
+    const mTags=missions.map((m,mi)=>{const ms=scores[t][m.id];return ms?'<span class="mission-tag done">'+'Mission #'+(mi+1)+': '+ms.score+'점</span>':'<span class="mission-tag">'+'Mission #'+(mi+1)+': —</span>';}).join('');
+    const ts=missions.map(m=>scores[t][m.id]?.timestamp).filter(Boolean).sort().pop();
+    const dt=ts?new Date(ts).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'—';
+    const tn=escHtml(t);
+    return '<tr><td><strong>'+tn+'</strong></td><td><span class="score-badge '+cls+'">'+tot+'점</span></td>'
+      +'<td><div class="mission-cell">'+mTags+'</div></td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+dt+'</td>'
+      +'<td><div class="actions-cell">'
+      +'<button class="btn btn-secondary btn-sm" onclick="requireToken(()=>triggerGrading(\''+tn+'\'))">&#x25BA; 재채점</button>'
+      +'<button class="btn btn-success btn-sm" onclick="requireToken(()=>openSuccessModal(\''+tn+'\'))">&#x2705; 성공처리</button>'
+      +'<button class="btn btn-warning btn-sm" onclick="requireToken(()=>openManualScoreModal(\''+tn+'\'))">&#x270F; 수동점수</button>'
+      +'<button class="btn btn-danger btn-sm" onclick="requireToken(()=>confirmResetTeam(\''+tn+'\'))">&#x2715; 초기화</button>'
+      +'</div></td></tr>';
+  }).join('');
+  document.getElementById('scores-container').innerHTML='<table><thead><tr><th>팀</th><th>총점</th><th>미션별</th><th>마지막 채점</th><th>액션</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+function updateStats(teams,subs,mCounts,avg){
+  document.getElementById('stat-teams').textContent=teams;
+  document.getElementById('stat-submissions').textContent=subs;
+  const dynamic=document.getElementById('mission-stats-dynamic');
+  if(dynamic){
+    const missions=currentClassroom?.missions||[];
+    dynamic.innerHTML=missions.map((m,mi)=>'<div class="stat-card"><div class="stat-value">'+(mCounts[m.id]||0)+'</div><div class="stat-label">'+'Mission #'+(mi+1)+' 완료</div></div>').join('');
+  }
+  document.getElementById('stat-avg').textContent=avg+'점';
+}
+
+async function loadRuns(){
+  const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+ADMIN_REPO+'/actions/runs?per_page=15',ghToken);
+  if(!res.ok){document.getElementById('runs-container').innerHTML='<div class="empty-state">토큰 입력 후 실행 내역을 볼 수 있습니다.</div>';return;}
+  const data=await res.json(),runs=data.workflow_runs||[];
+  if(!runs.length){document.getElementById('runs-container').innerHTML='<div class="empty-state">실행 내역이 없습니다.</div>';return;}
+  const lm={success:'✅ 성공',failure:'❌ 실패',in_progress:'⏳ 진행중',queued:'⏳ 대기',cancelled:'⊘ 취소'};
+  const rows=runs.map(r=>{const st=r.conclusion||r.status;const dur=r.updated_at?Math.round((new Date(r.updated_at)-new Date(r.created_at))/1000)+'s':'—';
+    return '<tr><td style="font-size:12px;color:var(--text-muted)">'+r.id+'</td><td>'+escHtml(r.name||'')+'</td>'
+      +'<td><span class="run-status '+st+'">'+(lm[st]||st)+'</span></td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})+'</td>'
+      +'<td style="font-size:12px;color:var(--text-muted)">'+dur+'</td>'
+      +'<td><a class="btn btn-secondary btn-sm" href="'+r.html_url+'" target="_blank">로그 &#x2192;</a></td></tr>';
+  }).join('');
+  document.getElementById('runs-container').innerHTML='<table><thead><tr><th>ID</th><th>워크플로우</th><th>상태</th><th>실행 시각</th><th>소요</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+// ── Token / Auth ──────────────────────────────────────────────
+function requireToken(cb){if(ghToken){cb();return;}tokenCb=cb;document.getElementById('token-overlay').classList.add('active');setTimeout(()=>document.getElementById('input-token').focus(),100);}
+function promptToken(){tokenCb=null;document.getElementById('token-overlay').classList.add('active');setTimeout(()=>document.getElementById('input-token').focus(),100);}
+function submitToken(){const t=document.getElementById('input-token').value.trim();if(!t)return;ghToken=t;document.getElementById('input-token').value='';closeTokenModal();updateLock();showToast('쓰기 권한 활성화됨','success');loadRuns();if(tokenCb){const cb=tokenCb;tokenCb=null;cb();}}
+function closeTokenModal(){document.getElementById('token-overlay').classList.remove('active');}
+function updateLock(){const e=document.getElementById('write-lock-badge');if(ghToken){e.textContent='🔓 쓰기 활성';e.classList.add('unlocked');}else{e.textContent='🔒 읽기 전용';e.classList.remove('unlocked');}}
+
+// ── Grading ───────────────────────────────────────────────────
+async function triggerGrading(team){
+  const missions=currentClassroom?.missions||[];
+  let ok=0;
+  for(const m of missions){
+    const wf='grade-'+m.id+'.yml';
+    const repo=ORG+'/'+team+'-'+m.id;
+    const r=await ghFetch('https://api.github.com/repos/'+repo+'/actions/workflows/'+wf+'/dispatches',ghToken,'POST',{ref:'main'});
+    if(r.status===204)ok++;
+    else console.warn('dispatch 실패 ('+r.status+'): '+repo+'/'+wf);
+  }
+  showToast(ok>0?team+': '+ok+'개 채점 트리거됨':'트리거 실패 — 팀 리포 이름과 토큰 권한 확인',ok>0?'success':'error');
+  if(ok>0)setTimeout(loadRuns,3000);
+}
+
+// ── Reset ─────────────────────────────────────────────────────
+function confirmResetTeam(t){openModal('"'+t+'" 초기화',t+' 팀의 모든 점수를 삭제합니다.',()=>resetTeam(t));}
+function confirmResetAll(){openModal('전체 초기화','현재 Classroom의 모든 팀 점수를 삭제합니다.',resetAll);}
+async function resetTeam(team){let d=0;for(const m of Object.values(scores[team]||{}))if(await delFile(m.fileName,m.fileSha))d++;showToast(team+': '+d+'개 삭제됨',d>0?'success':'error');await loadScores();}
+async function resetAll(){if(!currentClassroom)return;let d=0;for(const f of allFiles.filter(f=>f.name.endsWith('.json'))){const r=await ghFetch(f.url,ghToken);if(!r.ok)continue;const m=await r.json();if(await delFile(f.name,m.sha))d++;}showToast(d+'개 파일 삭제됨','success');await loadScores();}
+async function delFile(name,sha){const cid=currentClassroom?.id||'';const r=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+cid+'/'+name,ghToken,'DELETE',{message:'admin: reset '+name,sha});return r.status===200;}
+
+// ── 성공 처리 ─────────────────────────────────────────────────
+let successTarget='';
+function openSuccessModal(team){
+  successTarget=team;
+  document.getElementById('success-team-name').textContent=team;
+  const missions=currentClassroom?.missions||[];
+  document.getElementById('success-mission-list').innerHTML=missions.map((m,i)=>{
+    const cur=scores[team]?.[m.id];
+    return '<label><input type="radio" name="success-mission" value="'+escHtml(m.id)+'" '+(i===0?'checked':'')+'>'
+      +' '+'Mission #'+(i+1)+' <span style="color:var(--text-muted)">(최대 '+m.max_score+'점)</span>'
+      +(cur?' <span style="color:var(--warning);font-size:11px;margin-left:4px">[현재 '+cur.score+'점]</span>':'')
+      +'</label>';
+  }).join('');
+  document.getElementById('success-overlay').classList.add('active');
+}
+function closeSuccessModal(){document.getElementById('success-overlay').classList.remove('active');}
+async function confirmMarkSuccess(){
+  const sel=document.querySelector('input[name="success-mission"]:checked');
+  if(!sel){showToast('미션을 선택하세요','error');return;}
+  const mission=currentClassroom.missions.find(m=>m.id===sel.value);
+  closeSuccessModal();
+  await writeScore(successTarget,mission.id,mission.max_score,'admin','관리자 성공 처리');
+}
+
+// ── 수동 점수 ─────────────────────────────────────────────────
+let manualTarget='';
+function openManualScoreModal(team){
+  manualTarget=team;
+  document.getElementById('manual-score-team-name').textContent=team;
+  const missions=currentClassroom?.missions||[];
+  const sel=document.getElementById('manual-score-mission');
+  sel.innerHTML=missions.map((m,mi)=>'<option value="'+escHtml(m.id)+'">'+'Mission #'+(mi+1)+' (최대 '+m.max_score+'점)</option>').join('');
+  const fillScore=()=>{
+    const m=missions.find(x=>x.id===sel.value);
+    document.getElementById('manual-score-value').value=(scores[team]?.[m?.id]?.score??'');
+    document.getElementById('manual-score-max').textContent=m?'/ '+m.max_score+'점':'';
+  };
+  sel.onchange=fillScore;fillScore();
+  document.getElementById('manual-score-note').value='';
+  document.getElementById('manual-score-overlay').classList.add('active');
+  setTimeout(()=>document.getElementById('manual-score-value').focus(),100);
+}
+function closeManualScoreModal(){document.getElementById('manual-score-overlay').classList.remove('active');}
+async function saveManualScore(){
+  const missionId=document.getElementById('manual-score-mission').value;
+  const scoreVal=parseInt(document.getElementById('manual-score-value').value);
+  const note=document.getElementById('manual-score-note').value.trim();
+  if(isNaN(scoreVal)||scoreVal<0){showToast('올바른 점수를 입력하세요','error');return;}
+  const mission=currentClassroom?.missions.find(m=>m.id===missionId);
+  if(mission&&scoreVal>mission.max_score&&!confirm('최대 점수('+mission.max_score+'점)를 초과합니다. 계속하시겠습니까?'))return;
+  closeManualScoreModal();
+  await writeScore(manualTarget,missionId,scoreVal,'manual',note||'수동 점수 입력');
+}
+
+// ── 점수 기록 (공통) ──────────────────────────────────────────
+async function writeScore(team,missionId,score,source,note){
+  if(!ghToken){requireToken(()=>writeScore(team,missionId,score,source,note));return;}
+  const cid=currentClassroom?.id;if(!cid)return;
+  const filePath='scores/'+cid+'/'+team+'-'+missionId+'.json';
+  const scoreJson={team,classroom:cid,mission:missionId,score,details:{manual:true,source},source,note:note||'',timestamp:new Date().toISOString(),commit:'manual'};
+  const existing=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+filePath,ghToken);
+  let sha='';if(existing.ok){const m=await existing.json();sha=m.sha||'';}
+  const body={message:'score: '+team+' '+missionId+' = '+score+' pts ('+source+')',content:btoa(unescape(encodeURIComponent(JSON.stringify(scoreJson,null,2))))};
+  if(sha)body.sha=sha;
+  const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+filePath,ghToken,'PUT',body);
+  if(res.ok){showToast(team+' '+missionId+': '+score+'점 저장됨','success');await loadScores();}
+  else{showToast('저장 실패 ('+res.status+')','error');}
+}
+
+// ── Classroom 설정 가이드 ─────────────────────────────────────
+function showSetupGuide(classroom){
+  document.getElementById('setup-classroom-id').textContent=classroom.id;
+  document.getElementById('setup-mission-snippets').innerHTML=classroom.missions.map((m,mi)=>{
+    const gradingWf=m.grading_workflow||('grade-java-rescue-'+m.id+'.yml');
+    const snippet='jobs:\n  grade:\n    uses: '+ORG+'/'+ADMIN_REPO+'/.github/workflows/'+escHtml(gradingWf)+'@main\n    with:\n      classroom: "'+escHtml(classroom.id)+'"\n      team_repo: ${{ github.repository }}\n      team_sha: ${{ github.sha }}\n    secrets: inherit';
+    return '<div class="snippet-block">'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">'+'Mission #'+(mi+1)+' — <code>'+escHtml(m.id)+'</code></div>'
+      +'<pre class="code-snippet">'+snippet+'</pre>'
+      +'<button class="btn btn-secondary btn-sm" onclick="(function(b){navigator.clipboard.writeText(b.previousElementSibling.textContent).then(()=>showToast(\'복사됨\',\'success\'));})(this)">복사</button>'
+      +'</div>';
+  }).join('');
+  document.getElementById('setup-guide-overlay').classList.add('active');
+}
+function closeSetupGuide(){document.getElementById('setup-guide-overlay').classList.remove('active');}
+function copySetupId(){navigator.clipboard.writeText(document.getElementById('setup-classroom-id').textContent).then(()=>showToast('Classroom ID 복사됨','success'));}
+
+// ── CSV ───────────────────────────────────────────────────────
+function downloadCSV(){
+  const missions=currentClassroom?.missions||[];
+  const teams=Object.keys(scores).sort();if(!teams.length){showToast('데이터 없음','error');return;}
+  const header=['팀명',...missions.map((m,i)=>'Mission #'+(i+1)),'총점','마지막채점'];
+  const rows=[header,...teams.map(t=>{const ms=missions.map(m=>scores[t][m.id]?.score||0);const tot=ms.reduce((a,b)=>a+b,0);const ts=missions.map(m=>scores[t][m.id]?.timestamp).filter(Boolean).sort().pop()||'';return[t,...ms,tot,ts];})];
+  const blob=new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
+  const cid=currentClassroom?.id||'scores';
+  const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(blob),download:'hackfest-'+cid+'-'+new Date().toISOString().slice(0,10)+'.csv'});a.click();showToast('CSV 다운로드 완료','success');
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+async function ghFetch(url,token='',method='GET',body=null){const h={'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};if(token)h['Authorization']='token '+token;const o={method,headers:h};if(body)o.body=JSON.stringify(body);return fetch(url,o);}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let tt;function showToast(m,t='info'){const e=document.getElementById('toast');e.textContent=m;e.className=t;e.style.display='block';clearTimeout(tt);tt=setTimeout(()=>e.style.display='none',3500);}
+function openModal(title,body,cb){document.getElementById('modal-title').textContent=title;document.getElementById('modal-body').textContent=body;document.getElementById('modal-confirm-btn').onclick=()=>{closeModal();cb();};document.getElementById('confirm-overlay').classList.add('active');}
+function closeModal(){document.getElementById('confirm-overlay').classList.remove('active');}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  // NC ID 자동 완성
+  const nameEl=document.getElementById('nc-name');
+  if(nameEl)nameEl.addEventListener('input',()=>{document.getElementById('nc-id').value=nameEl.value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');});
+  if(sessionStorage.getItem('hf_auth')==='1')showDashboard();
+});
+</script>
+
+</body>
+</html>
