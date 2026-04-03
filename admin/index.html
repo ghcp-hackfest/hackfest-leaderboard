@@ -153,13 +153,16 @@
     <h3>&#x1F393; New Classroom</h3>
     <p class="note">새 이벤트/고객사 Classroom을 생성합니다.<br>생성 후 각 미션 템플릿의 <code>classroom</code> 값을 이 ID로 교체하세요.</p>
     <div class="form-group"><label>이름 <span style="color:var(--danger)">*</span></label>
-      <input type="text" id="nc-name" placeholder="ACME Corp — Apr 2026">
+      <input type="text" id="nc-name" placeholder="ACME Corp HackFest">
     </div>
     <div class="form-group"><label>ID (소문자, 숫자, - 만 허용) <span style="color:var(--danger)">*</span></label>
       <input type="text" id="nc-id" placeholder="acme-2026-04">
     </div>
     <div class="form-group"><label>GitHub Org</label>
       <input type="text" id="nc-org" placeholder="ghcp-hackfest">
+    </div>
+    <div class="form-group"><label>GitHub Classroom URL <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
+      <input type="url" id="nc-classroom-url" placeholder="https://classroom.github.com/classrooms/...">
     </div>
     <div class="form-group"><label>미션 목록 (한 줄에 하나: <code>id,이름,최대점수</code>)</label>
       <textarea id="nc-missions" rows="4" placeholder="mission-01,☕ Java Rescue,100&#10;mission-02,🔐 Security Fix,150"></textarea>
@@ -302,12 +305,13 @@ async function loadClassrooms(){
 
 function renderClassroomTabs(cls){
   const container=document.getElementById('classroom-tabs');
-  if(!cls.length){container.innerHTML='<span class="classroom-tabs-label">Classroom:</span><span style="color:var(--text-muted);font-size:13px">없음</span>';return;}
+  if(!cls||!cls.length){container.innerHTML='<span class="classroom-tabs-label">Classroom:</span><span style="color:var(--text-muted);font-size:13px">없음</span>';return;}
   container.innerHTML='<span class="classroom-tabs-label">Classroom:</span>'+cls.map(c=>`
     <button class="btn btn-classroom btn-sm ${currentClassroom?.id===c.id?'active-classroom':''}" onclick="selectClassroomById('${escHtml(c.id)}')">
       ${c.status==='archived'?'📦':'🎮'} ${escHtml(c.name)}
       ${c.status==='archived'?'<span style="font-size:10px;opacity:.6;margin-left:3px">(종료)</span>':''}
-    </button>`).join('');
+    </button>
+    ${c.classroom_url?`<a class="btn btn-secondary btn-sm" href="${escHtml(c.classroom_url)}" target="_blank" title="GitHub Classroom 열기" style="padding:2px 7px">🔗</a>`:''}`).join('');
 }
 
 async function selectClassroomById(id){const c=classrooms.find(x=>x.id===id);if(c)await selectClassroom(c);}
@@ -330,6 +334,7 @@ async function createClassroom(){
   const name=document.getElementById('nc-name').value.trim();
   const id=document.getElementById('nc-id').value.trim();
   const org=document.getElementById('nc-org').value.trim()||ORG;
+  const classroomUrl=document.getElementById('nc-classroom-url').value.trim();
   const mText=document.getElementById('nc-missions').value.trim();
   if(!name||!id){showToast('이름과 ID는 필수입니다','error');return;}
   if(!/^[a-z0-9-]+$/.test(id)){showToast('ID는 소문자, 숫자, -만 가능합니다','error');return;}
@@ -339,13 +344,13 @@ async function createClassroom(){
     return{id:p[0]||('mission-0'+(i+1)),name:p[1]||('Mission '+(i+1)),max_score:parseInt(p[2])||100};
   });
   if(!missions.length){showToast('미션을 1개 이상 입력하세요','error');return;}
-  const entry={id,name,org,missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
+  const entry={id,name,org,...(classroomUrl&&{classroom_url:classroomUrl}),missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
   const ok=await saveClassrooms([...classrooms,entry]);
   if(!ok)return;
   await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+id+'/.gitkeep',ghToken,'PUT',{message:'init: scores folder for '+id,content:btoa('')});
   classrooms=[...classrooms,entry];
   closeNewClassroomModal();
-  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-missions').value='';
+  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-org').value='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-missions').value='';
   await loadClassrooms();
   await selectClassroom(entry);
   showSetupGuide(entry);
