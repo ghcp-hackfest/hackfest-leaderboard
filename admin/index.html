@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HackFest Admin</title>
+    <title>GitHub Copilot HackFest Admin</title>
     <style>
         :root{--bg:#0d1117;--surface:#161b22;--surface2:#21262d;--border:#30363d;--text:#e6edf3;--text-muted:#7d8590;--primary:#238636;--primary-hover:#2ea043;--danger:#da3633;--danger-hover:#f85149;--warning:#d29922;--info:#1f6feb;--success:#3fb950;--radius:8px}
         *{box-sizing:border-box;margin:0;padding:0}
@@ -25,7 +25,8 @@
         .btn-full{width:100%;justify-content:center}.btn-sm{padding:4px 10px;font-size:12px}
         #dashboard{display:none}
         .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
-        .topbar-left{display:flex;align-items:center;gap:12px}.topbar-title{font-weight:600;font-size:16px}
+        .topbar-left{display:flex;align-items:center;gap:10px}.topbar-title{font-weight:600;font-size:16px}
+        .topbar-icon{width:28px;height:28px;border-radius:50%;object-fit:cover}
         .topbar-right{display:flex;align-items:center;gap:10px}
         .org-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text-muted)}
         .main-content{padding:24px;max-width:1200px;margin:0 auto}
@@ -85,7 +86,7 @@
 
 <div id="login-screen">
   <div class="login-card">
-    <h1>&#x1F510; HackFest Admin</h1>
+    <h1 style="display:flex;align-items:center;gap:10px"><img src="../github_copilot_icon.png" alt="Copilot" style="width:36px;height:36px;border-radius:50%;object-fit:cover"> GitHub Copilot HackFest</h1>
     <p class="subtitle">관리자 전용 대시보드입니다.</p>
     <div class="form-group">
       <label>비밀번호</label>
@@ -99,8 +100,8 @@
 <div id="dashboard">
   <div class="topbar">
     <div class="topbar-left">
-      <span>&#x1F512;</span>
-      <span class="topbar-title">HackFest Admin</span>
+      <img src="../github_copilot_icon.png" alt="Copilot" class="topbar-icon">
+      <span class="topbar-title">GitHub Copilot HackFest</span>
       <span class="org-badge" id="classroom-status-indicator">로딩중...</span>
     </div>
     <div class="topbar-right">
@@ -290,7 +291,7 @@ async function loadClassrooms(){
     const res=await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/'+CLASSROOMS_FILE);
     if(!res.ok)throw new Error(res.status);
     const meta=await res.json();
-    classrooms=JSON.parse(atob(meta.content.replace(/\n/g,'')));
+    classrooms=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g,'')),c=>c.charCodeAt(0))));
   }catch(e){classrooms=[];}
   renderClassroomTabs(classrooms);
   const active=classrooms.find(c=>c.status==='active')||classrooms[0]||null;
@@ -389,7 +390,7 @@ async function loadScores(){
   const jf=files.filter(f=>f.name.endsWith('.json'));
   await Promise.all(jf.map(async f=>{
     const r=await ghFetch(f.url);if(!r.ok)return;
-    const meta=await r.json();const c=JSON.parse(atob(meta.content.replace(/\n/g,'')));
+    const meta=await r.json();const c=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g,'')),b=>b.charCodeAt(0))));
     if(!scores[c.team])scores[c.team]={};
     scores[c.team][c.mission]={...c,fileSha:meta.sha,fileName:f.name};
   }));

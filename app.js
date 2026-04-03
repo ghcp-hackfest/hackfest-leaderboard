@@ -44,7 +44,7 @@ async function loadClassrooms() {
         const res = await fetch(url, { headers: { Accept: 'application/vnd.github.v3+json' } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const meta = await res.json();
-        const data = JSON.parse(atob(meta.content.replace(/\n/g, '')));
+        const data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g, '')), c => c.charCodeAt(0))));
         state.classrooms = Array.isArray(data) ? data : [data];
     } catch (err) {
         console.warn('classrooms.json 로드 실패 — 기본값 사용:', err);
