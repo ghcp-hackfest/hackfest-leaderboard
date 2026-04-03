@@ -1,28 +1,25 @@
 [
   {
-    "id": "ghcp-hackfest-2026-04",
-    "name": "GHCP HackFest — Apr 2026",
+    "id": "testclassroom",
+    "name": "TestClassroom",
     "org": "ghcp-hackfest",
-    "workshop": "java-rescue-workshop",
-    "classroom_url": "https://classroom.github.com/classrooms/273247604-ghcp-hackfest-classroom-25bf59",
     "missions": [
       {
         "id": "mission-01",
-        "name": "☕ Java Rescue",
+        "name": "Java Rescue",
+        "max_score": 100,
         "template_repo": "java-rescue-workshop-template",
-        "grading_workflow": "grade-java-rescue-mission-01.yml",
-        "max_score": 100
+        "grading_workflow": "grade-java-rescue-mission-01.yml"
       },
       {
         "id": "mission-02",
-        "name": "🔐 Security Fix",
+        "name": "Security Fix",
+        "max_score": 100,
         "template_repo": "java-rescue-workshop-template",
-        "grading_workflow": "grade-java-rescue-mission-02.yml",
-        "max_score": 150
+        "grading_workflow": "grade-java-rescue-mission-02.yml"
       }
     ],
-    "status": "archived",
-    "created_at": "2026-04-03",
-    "archived_at": "2026-04-03"
+    "status": "active",
+    "created_at": "2026-04-03"
   }
 ]
