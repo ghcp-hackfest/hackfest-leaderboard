@@ -117,6 +117,7 @@
     </div>
     <div class="topbar-right">
       <button class="btn btn-primary btn-sm" onclick="requireToken(showNewClassroomModal)">&#x2B; New Classroom</button>
+      <button class="btn btn-secondary btn-sm" onclick="requireToken(loadStudentsForClassroom)">&#x1F465; 학생/팀 현황</button>
       <button class="btn btn-secondary btn-sm" onclick="requireToken(confirmArchiveClassroom)">&#x1F4E6; Classroom 아카이브</button>
       <button class="btn btn-secondary btn-sm" onclick="refreshAll()">&#x21BB; 새로고침</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">&#x2193; CSV</button>
@@ -161,30 +162,35 @@
 <!-- New Classroom Modal -->
 <div id="new-classroom-overlay" class="overlay" onclick="closeNewClassroomModal()">
   <div class="modal-box" onclick="event.stopPropagation()">
-    <h3>&#x1F393; New Classroom</h3>
-    <p class="note">새 이벤트/고객사 Classroom을 생성합니다.<br>생성 후 각 미션 템플릿의 <code>classroom</code> 값을 이 ID로 교체하세요.</p>
-    <div class="form-group"><label>이름 <span style="color:var(--danger)">*</span></label>
-      <input type="text" id="nc-name" placeholder="ACME Corp HackFest">
-    </div>
-    <div class="form-group"><label>ID (소문자, 숫자, - 만 허용) <span style="color:var(--danger)">*</span></label>
-      <input type="text" id="nc-id" placeholder="acme-2026-04">
-    </div>
-    <div class="form-group"><label>GitHub Org</label>
-      <input type="text" id="nc-org" value="ghcp-hackfest" readonly style="opacity:.6;cursor:not-allowed">
-    </div>
-    <div class="form-group"><label>Workshop Template <span style="color:var(--text-muted);font-size:12px">(선택)</span></label>
-      <div class="nc-template-row">
-        <select id="nc-template"><option value="">— 템플릿 선택 —</option></select>
-        <button class="btn btn-secondary btn-sm" onclick="loadTemplateMissions()" id="nc-tpl-btn">🔄 불러오기</button>
+    <h3>&#x1F393; GitHub Classroom 연결</h3>
+    <p class="note">GitHub Classroom URL을 입력하면 Classroom 및 Assignment 목록을 자동으로 가져옵니다.</p>
+    <div class="form-group">
+      <label>GitHub Classroom URL <span style="color:var(--danger)">*</span></label>
+      <div style="display:flex;gap:8px">
+        <input type="url" id="nc-classroom-url" placeholder="https://classroom.github.com/classrooms/273247604-..." style="flex:1">
+        <button class="btn btn-secondary btn-sm" id="nc-fetch-btn" onclick="fetchClassroomFromUrl()">&#x1F50D; 불러오기</button>
       </div>
     </div>
-    <div class="form-group"><label>미션 목록 <span style="color:var(--danger)">*</span></label>
-      <div class="mission-col-header"><span>ID</span><span>이름</span><span>최대점수</span><span></span></div>
-      <div id="nc-mission-list" class="mission-list-box"></div>
+    <div id="nc-preview" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-group" style="margin:0"><label>이름 <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="nc-name" placeholder="Classroom 이름">
+        </div>
+        <div class="form-group" style="margin:0"><label>ID <span style="color:var(--danger)">*</span></label>
+          <input type="text" id="nc-id" placeholder="classroom-id">
+        </div>
+      </div>
+      <div class="form-group"><label>GitHub Org</label>
+        <input type="text" id="nc-org" readonly style="opacity:.6;cursor:not-allowed">
+      </div>
+      <div class="form-group"><label>Assignment → 미션 <span style="color:var(--text-muted);font-size:11px">(최대점수 조정 가능)</span></label>
+        <div class="mission-col-header"><span>ID</span><span>이름</span><span>최대점수</span><span></span></div>
+        <div id="nc-mission-list" class="mission-list-box"></div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeNewClassroomModal()">취소</button>
-      <button class="btn btn-primary" onclick="requireToken(createClassroom)">생성</button>
+      <button class="btn btn-primary" id="nc-create-btn" style="display:none" onclick="requireToken(createClassroom)">저장</button>
     </div>
   </div>
 </div>
@@ -259,6 +265,16 @@
 </div>
 
 <!-- 🎉 Classroom Setup Guide Modal -->
+<div id="students-overlay" class="overlay" onclick="closeStudentsModal()">
+  <div class="modal-box" style="max-width:700px;width:95%;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <h3>&#x1F465; 학생/팀 현황</h3>
+    <div id="students-content"><div class="empty-state"><span class="spinner"></span></div></div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-secondary" onclick="closeStudentsModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="setup-guide-overlay" class="overlay" onclick="closeSetupGuide()">
   <div class="modal-box" style="max-width:640px" onclick="event.stopPropagation()">
     <h3>&#x1F389; Classroom 생성 완료!</h3>
@@ -279,7 +295,7 @@
 <script>
 const ORG='ghcp-hackfest',LB_REPO='hackfest-leaderboard',ADMIN_REPO='hackfest-admin',CLASSROOMS_FILE='classrooms.json';
 const HASH_URL='https://raw.githubusercontent.com/'+ORG+'/'+LB_REPO+'/main/admin/password-hash.txt';
-let ghToken='',classrooms=[],currentClassroom=null,scores={},allFiles=[],tokenCb=null;
+let ghToken='',classrooms=[],currentClassroom=null,scores={},allFiles=[],tokenCb=null,ncGithubClassroomId='';
 
 async function sha256(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');}
 
@@ -389,12 +405,13 @@ async function loadTemplateMissions(){
 
 function renderMissionRows(missions){
   document.getElementById('nc-mission-list').innerHTML='';
-  missions.forEach(m=>addMissionRow(m.id,m.name,m.max_score));
+  missions.forEach(m=>addMissionRow(m.id,m.name,m.max_score,m.github_assignment_id||''));
 }
 
-function addMissionRow(id='',name='',maxScore=100){
+function addMissionRow(id='',name='',maxScore=100,assignmentId=''){
   const box=document.getElementById('nc-mission-list');
   const row=document.createElement('div');row.className='mission-row';
+  if(assignmentId)row.dataset.assignmentId=assignmentId;
   row.innerHTML='<input class="inp-id" type="text" value="'+escHtml(String(id))+'" placeholder="mission-01">'
     +'<input class="inp-name" type="text" value="'+escHtml(String(name))+'" placeholder="미션 이름">'
     +'<input class="inp-score" type="number" value="'+escHtml(String(maxScore))+'" min="1" max="9999">'
@@ -403,14 +420,12 @@ function addMissionRow(id='',name='',maxScore=100){
 }
 
 function getMissionRows(){
-  const tpl=document.getElementById('nc-template')?.value||'';
-  const ws=tpl?tpl.replace(/-workshop-template$/,'').replace(/-template$/,''):'';
   return[...document.querySelectorAll('#nc-mission-list .mission-row')].map((row,i)=>{
     const id=row.querySelector('.inp-id').value.trim()||('mission-0'+(i+1));
     const name=row.querySelector('.inp-name').value.trim()||('Mission '+(i+1));
     const max_score=parseInt(row.querySelector('.inp-score').value)||100;
     const entry={id,name,max_score};
-    if(tpl){entry.template_repo=tpl;entry.grading_workflow='grade-'+ws+'-'+id+'.yml';}
+    if(row.dataset.assignmentId)entry.github_assignment_id=parseInt(row.dataset.assignmentId);
     return entry;
   });
 }
@@ -419,18 +434,19 @@ async function createClassroom(){
   const name=document.getElementById('nc-name').value.trim();
   const id=document.getElementById('nc-id').value.trim();
   const org=document.getElementById('nc-org').value.trim()||ORG;
+  const classroomUrl=document.getElementById('nc-classroom-url').value.trim();
   const missions=getMissionRows();
   if(!name||!id){showToast('이름과 ID는 필수입니다','error');return;}
   if(!/^[a-z0-9-]+$/.test(id)){showToast('ID는 소문자, 숫자, -만 가능합니다','error');return;}
   if(classrooms.find(c=>c.id===id)){showToast('이미 존재하는 Classroom ID입니다','error');return;}
   if(!missions.length){showToast('미션을 1개 이상 추가하세요','error');return;}
-  const entry={id,name,org,missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
+  const entry={id,name,org,...(classroomUrl&&{classroom_url:classroomUrl}),...(ncGithubClassroomId&&{github_classroom_id:parseInt(ncGithubClassroomId)}),missions,status:'active',created_at:new Date().toISOString().slice(0,10)};
   const ok=await saveClassrooms([...classrooms,entry]);
   if(!ok)return;
   await ghFetch('https://api.github.com/repos/'+ORG+'/'+LB_REPO+'/contents/scores/'+id+'/.gitkeep',ghToken,'PUT',{message:'init: scores folder for '+id,content:btoa('')});
   classrooms=[...classrooms,entry];
   closeNewClassroomModal();
-  document.getElementById('nc-name').value='';document.getElementById('nc-id').value='';document.getElementById('nc-mission-list').innerHTML='';document.getElementById('nc-template').value='';
+  document.getElementById('nc-mission-list').innerHTML='';document.getElementById('nc-classroom-url').value='';document.getElementById('nc-preview').style.display='none';document.getElementById('nc-create-btn').style.display='none';ncGithubClassroomId='';
   await loadClassrooms();
   await selectClassroom(entry);
   showSetupGuide(entry);
@@ -651,6 +667,43 @@ function showSetupGuide(classroom){
   }).join('');
   document.getElementById('setup-guide-overlay').classList.add('active');
 }
+function closeStudentsModal(){document.getElementById('students-overlay').classList.remove('active');}
+async function loadStudentsForClassroom(){
+  if(!currentClassroom){showToast('Classroom을 선택하세요','error');return;}
+  const gcid=currentClassroom.github_classroom_id;
+  if(!gcid){showToast('이 Classroom에는 GitHub Classroom ID가 없습니다.\nURL로 Classroom을 생성하면 자동으로 연동됩니다.','info');return;}
+  const content=document.getElementById('students-content');
+  content.innerHTML='<div class="empty-state"><span class="spinner"></span> 로딩 중...</div>';
+  document.getElementById('students-overlay').classList.add('active');
+  try{
+    const aRes=await ghFetch('https://api.github.com/classrooms/'+gcid+'/assignments?per_page=100',ghToken);
+    if(!aRes.ok){content.innerHTML='<div class="empty-state">불러오기 실패 ('+aRes.status+')</div>';return;}
+    const assignments=await aRes.json();
+    if(!assignments.length){content.innerHTML='<div class="empty-state">Assignment가 없습니다.</div>';return;}
+    const sections=[];
+    for(const a of assignments){
+      const saRes=await ghFetch('https://api.github.com/assignments/'+a.id+'/accepted_assignments?per_page=100',ghToken);
+      const accepted=saRes.ok?await saRes.json():[];
+      sections.push({a,accepted});
+    }
+    content.innerHTML=sections.map(({a,accepted})=>{
+      const rows=accepted.map(acc=>{
+        const teamName=acc.repository?.name?.replace(new RegExp('^'+a.slug+'-'),'');
+        const students=(acc.students||[]).map(s=>'<a href="https://github.com/'+escHtml(s.login)+'" target="_blank" style="color:var(--info)">'+escHtml(s.login)+'</a>').join(', ')||'—';
+        const repoUrl=acc.repository?.html_url||'';
+        return '<tr><td><strong>'+escHtml(teamName||'—')+'</strong></td>'
+          +'<td style="font-size:12px">'+students+'</td>'
+          +'<td style="font-size:12px;text-align:center">'+(acc.submitted?'&#x2705;':'—')+'</td>'
+          +'<td style="font-size:12px">'+(repoUrl?'<a href="'+escHtml(repoUrl)+'" target="_blank" style="color:var(--info)">레포 &#x2192;</a>':'—')+'</td></tr>';
+      }).join('');
+      return '<div style="margin-bottom:20px">'
+        +'<div style="font-weight:600;font-size:14px;margin-bottom:8px">'+escHtml(a.title)+' <span style="color:var(--text-muted);font-size:12px">('+accepted.length+'명/팀)</span></div>'
+        +(accepted.length?'<table><thead><tr><th>팀/학생</th><th>GitHub</th><th>제출</th><th>레포</th></tr></thead><tbody>'+rows+'</tbody></table>'
+          :'<div style="color:var(--text-muted);font-size:13px;padding:8px">아직 참여한 학생이 없습니다.</div>')+'</div>';
+    }).join('');
+  }catch(e){content.innerHTML='<div class="empty-state">오류: '+escHtml(e.message)+'</div>';}
+}
+
 function closeSetupGuide(){document.getElementById('setup-guide-overlay').classList.remove('active');}
 function copySetupId(){navigator.clipboard.writeText(document.getElementById('setup-classroom-id').textContent).then(()=>showToast('Classroom ID 복사됨','success'));}
 
