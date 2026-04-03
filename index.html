@@ -11,7 +11,9 @@
         <header class="header">
             <div class="logo">🎮</div>
             <h1>GHCP HackFest</h1>
-            <p class="subtitle">GitHub Copilot Challenge — Live Rankings</p>
+            <!-- Classroom 이름 및 상태 (JS가 동적으로 채움) -->
+            <p class="subtitle" id="classroom-title">GitHub Copilot Challenge</p>
+            <span class="status-badge active" id="classroom-status-badge" style="display:inline-block;margin-bottom:12px"></span>
             <div class="status-bar">
                 <span id="last-updated">업데이트 중...</span>
                 <span class="dot" id="status-dot">●</span>
@@ -19,11 +21,12 @@
             </div>
         </header>
 
-        <!-- 미션 탭 -->
-        <div class="tabs">
+        <!-- Classroom 전환 네비게이션 (복수 Classroom이 있을 때만 표시) -->
+        <div class="classroom-nav" id="classroom-nav" style="display:none"></div>
+
+        <!-- 미션 탭 (JS가 classrooms.json 기반으로 동적 생성) -->
+        <div class="tabs" id="mission-tabs">
             <button class="tab active" data-mission="all" onclick="filterMission('all')">🏆 종합 순위</button>
-            <button class="tab" data-mission="mission-01" onclick="filterMission('mission-01')">🔨 Mission 01</button>
-            <button class="tab" data-mission="mission-02" onclick="filterMission('mission-02')">🔐 Mission 02</button>
         </div>
 
         <!-- 상위 3팀 포디움 -->
@@ -31,39 +34,26 @@
 
         <!-- 전체 리더보드 테이블 -->
         <div class="leaderboard-container">
-            <table class="leaderboard-table" id="leaderboard-table">
-                <thead>
+            <table class="leaderboard-table">
+                <thead id="leaderboard-thead">
                     <tr>
                         <th class="rank-col">순위</th>
                         <th class="team-col">팀</th>
-                        <th class="score-col">Mission 01</th>
-                        <th class="score-col">Mission 02</th>
                         <th class="total-col">총점</th>
                         <th class="time-col">최근 제출</th>
                     </tr>
                 </thead>
                 <tbody id="leaderboard-body">
-                    <tr><td colspan="6" class="loading">⏳ 데이터 로딩 중...</td></tr>
+                    <tr><td colspan="4" class="loading">⏳ 데이터 로딩 중...</td></tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- 점수 범례 -->
+        <!-- 점수 범례 (JS가 동적으로 채움) -->
         <div class="legend">
             <h3>🏅 점수 체계</h3>
-            <div class="legend-grid">
-                <div class="legend-item">
-                    <span class="badge mission01">M01</span>
-                    <span>빌드 성공 <strong>30pt</strong> · 테스트 통과 <strong>50pt</strong> · 앱 구동 <strong>20pt</strong></span>
-                </div>
-                <div class="legend-item">
-                    <span class="badge mission02">M02</span>
-                    <span>취약점 리포트 <strong>75pt</strong> · 보안 패치 <strong>75pt</strong></span>
-                </div>
-                <div class="legend-item">
-                    <span class="badge bonus">⚡</span>
-                    <span>각 미션 최초 완료 보너스 <strong>+30pt</strong></span>
-                </div>
+            <div class="legend-grid" id="legend-items">
+                <!-- renderLegend()가 채움 -->
             </div>
         </div>
     </div>
