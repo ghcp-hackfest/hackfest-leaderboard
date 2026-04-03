@@ -209,9 +209,10 @@
   <div class="modal-box" onclick="event.stopPropagation()">
     <h3>&#x1F511; GitHub Token</h3>
     <p class="note">
-      점수 삭제·재채점은 GitHub Token이 필요합니다.<br>
-      권한: <code>repo</code> + <code>workflow</code><br>
-      Token은 메모리에만 저장되며 페이지를 닫으면 삭제됩니다.
+      점수 삭제·재채점 및 Classroom 불러오기에 GitHub Token이 필요합니다.<br>
+      필요 권한: <code>repo</code> + <code>workflow</code><br>
+      GitHub Classroom 불러오기: 해당 Classroom의 <strong>Owner / Teacher</strong> 계정 토큰 필요<br>
+      <span style="color:var(--text-muted);font-size:11px">Token은 세션에만 저장되며 브라우저 탭을 닫으면 삭제됩니다.</span>
     </p>
     <div class="form-group">
       <input type="password" id="input-token" placeholder="github_pat_..." autocomplete="off" onkeydown="if(event.key==='Enter')submitToken()">
@@ -378,16 +379,29 @@ async function fetchClassroomFromUrl(){
       ghFetch('https://api.github.com/classrooms/'+cid,ghToken),
       ghFetch('https://api.github.com/classrooms/'+cid+'/assignments?per_page=100',ghToken)
     ]);
-    if(!cRes.ok){showToast('Classroom 조회 실패 ('+cRes.status+'). 토큰에 read:org 권한이 있는지 확인하세요','error');return;}
+    if(!cRes.ok){
+      const msg={
+        401:'토큰이 유효하지 않습니다. 새 토큰을 입력하세요.',
+        403:'접근이 거부됐습니다. 토큰에 repo + workflow 권한이 있는지 확인하세요.',
+        404:'Classroom을 찾을 수 없습니다. 해당 Classroom의 Owner 또는 Teacher 계정 토큰인지 확인하세요. (추출된 ID: '+cid+')'
+      }[cRes.status]||'Classroom 조회 실패 (HTTP '+cRes.status+')';
+      showToast(msg,'error');
+      return;
+    }
     const classroom=await cRes.json();
-    const assignments=aRes.ok?await aRes.json():[];
+    let assignments=[];
+    if(aRes.ok){
+      assignments=await aRes.json();
+    } else {
+      showToast('Assignment 목록 조회 실패 (HTTP '+aRes.status+'). Classroom 기본 정보만 표시합니다.','info');
+    }
     ncGithubClassroomId=String(cid);
     const slug=classroom.name?classroom.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):cid;
     document.getElementById('nc-name').value=classroom.name||'';
     document.getElementById('nc-id').value=slug;
     document.getElementById('nc-org').value=(classroom.organization&&classroom.organization.login)||ORG;
-    const missions=assignments.map(a=>({
-      id:'mission-'+String(a.id),
+    const missions=assignments.map((a,i)=>({
+      id:'mission-'+(i+1<10?'0'+(i+1):i+1),
       name:a.title,
       max_score:100,
       github_assignment_id:a.id
@@ -395,7 +409,7 @@ async function fetchClassroomFromUrl(){
     renderMissionRows(missions);
     document.getElementById('nc-preview').style.display='block';
     document.getElementById('nc-create-btn').style.display='';
-    showToast('Classroom 정보를 불러왔습니다','success');
+    showToast('Classroom 정보를 불러왔습니다 ('+(assignments.length)+'개 Assignment)','success');
   }catch(e){
     showToast('오류: '+e.message,'error');
   }finally{
@@ -717,9 +731,14 @@ async function loadStudentsForClassroom(){
   document.getElementById('students-overlay').classList.add('active');
   try{
     const aRes=await ghFetch('https://api.github.com/classrooms/'+gcid+'/assignments?per_page=100',ghToken);
-    if(!aRes.ok){content.innerHTML='<div class="empty-state">불러오기 실패 ('+aRes.status+')</div>';return;}
+    if(!aRes.ok){
+      const em=aRes.status===404?'Classroom(ID: '+gcid+')을 찾을 수 없습니다. Classroom Owner/Teacher 토큰인지 확인하세요.'
+        :aRes.status===401?'토큰이 유효하지 않습니다.'
+        :'Assignment 목록 조회 실패 (HTTP '+aRes.status+')';
+      content.innerHTML='<div class="empty-state">'+escHtml(em)+'</div>';return;
+    }
     const assignments=await aRes.json();
-    if(!assignments.length){content.innerHTML='<div class="empty-state">Assignment가 없습니다.</div>';return;}
+    if(!assignments.length){content.innerHTML='<div class="empty-state">이 Classroom에 Assignment가 없습니다.</div>';return;}
     const sections=[];
     for(const a of assignments){
       const saRes=await ghFetch('https://api.github.com/assignments/'+a.id+'/accepted_assignments?per_page=100',ghToken);
@@ -759,7 +778,14 @@ function downloadCSV(){
 }
 
 // ── Utilities ─────────────────────────────────────────────────
-async function ghFetch(url,token='',method='GET',body=null){const h={'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'};if(token)h['Authorization']='token '+token;const o={method,headers:h};if(body)o.body=JSON.stringify(body);return fetch(url,o);}
+async function ghFetch(url,token='',method='GET',body=null){
+  const h={'Accept':'application/vnd.github+json'};
+  if(method!=='GET')h['Content-Type']='application/json';
+  if(token)h['Authorization']='Bearer '+token;
+  const o={method,headers:h};
+  if(body)o.body=JSON.stringify(body);
+  return fetch(url,o);
+}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let tt;function showToast(m,t='info'){const e=document.getElementById('toast');e.textContent=m;e.className=t;e.style.display='block';clearTimeout(tt);tt=setTimeout(()=>e.style.display='none',3500);}
 function openModal(title,body,cb){document.getElementById('modal-title').textContent=title;document.getElementById('modal-body').textContent=body;document.getElementById('modal-confirm-btn').onclick=()=>{closeModal();cb();};document.getElementById('confirm-overlay').classList.add('active');}
