@@ -4,6 +4,7 @@
     "name": "GHCP HackFest — Apr 2026",
     "org": "ghcp-hackfest",
     "workshop": "java-rescue-workshop",
+    "classroom_url": "https://classroom.github.com/classrooms/273247604-ghcp-hackfest-classroom-25bf59",
     "missions": [
       {
         "id": "mission-01",

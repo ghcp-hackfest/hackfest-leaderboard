@@ -123,9 +123,9 @@ function renderMissionTabs(missions) {
 
     container.innerHTML =
         `<button class="tab active" data-mission="all" onclick="filterMission('all')">🏆 종합 순위</button>` +
-        missions.map(m =>
+        missions.map((m, i) =>
             `<button class="tab" data-mission="${escapeHtml(m.id)}"
-                     onclick="filterMission('${escapeHtml(m.id)}')">${escapeHtml(m.name)}</button>`
+                     onclick="filterMission('${escapeHtml(m.id)}')">Mission #${i + 1}</button>`
         ).join('');
 }
 
@@ -137,7 +137,7 @@ function renderTableHeader(missions) {
     thead.innerHTML = `<tr>
         <th class="rank-col">순위</th>
         <th class="team-col">팀</th>
-        ${missions.map(m => `<th class="score-col">${escapeHtml(m.name)}</th>`).join('')}
+        ${missions.map((m, i) => `<th class="score-col">Mission #${i + 1}</th>`).join('')}
         <th class="total-col">총점</th>
         <th class="time-col">최근 제출</th>
     </tr>`;
@@ -341,7 +341,7 @@ function renderLegend() {
             <span class="badge" style="background:rgba(88,166,255,0.15);border:1px solid #58a6ff;color:#fff">
                 M${String(mi + 1).padStart(2, '0')}
             </span>
-            <span><strong>${escapeHtml(m.name)}</strong> — 최대 ${m.max_score + CONFIG.FIRST_COMPLETE_BONUS}점
+            <span><strong>Mission #${mi + 1}</strong> — 최대 ${m.max_score + CONFIG.FIRST_COMPLETE_BONUS}점
                 (기본 ${m.max_score} + 최초완료 보너스 ${CONFIG.FIRST_COMPLETE_BONUS})
             </span>
         </div>`;

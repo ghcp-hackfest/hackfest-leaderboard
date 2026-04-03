@@ -410,7 +410,7 @@ function renderTable(){
   const rows=teams.map(t=>{
     const tot=missions.reduce((s,m)=>s+(scores[t][m.id]?.score||0),0);
     const cls=tot>=200?'score-high':tot>=100?'score-mid':tot>0?'score-low':'score-zero';
-    const mTags=missions.map(m=>{const ms=scores[t][m.id];return ms?'<span class="mission-tag done">'+escHtml(m.name)+': '+ms.score+'점</span>':'<span class="mission-tag">'+escHtml(m.name)+': —</span>';}).join('');
+    const mTags=missions.map((m,mi)=>{const ms=scores[t][m.id];return ms?'<span class="mission-tag done">'+'Mission #'+(mi+1)+': '+ms.score+'점</span>':'<span class="mission-tag">'+'Mission #'+(mi+1)+': —</span>';}).join('');
     const ts=missions.map(m=>scores[t][m.id]?.timestamp).filter(Boolean).sort().pop();
     const dt=ts?new Date(ts).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'—';
     const tn=escHtml(t);
@@ -433,7 +433,7 @@ function updateStats(teams,subs,mCounts,avg){
   const dynamic=document.getElementById('mission-stats-dynamic');
   if(dynamic){
     const missions=currentClassroom?.missions||[];
-    dynamic.innerHTML=missions.map(m=>'<div class="stat-card"><div class="stat-value">'+(mCounts[m.id]||0)+'</div><div class="stat-label">'+escHtml(m.name)+' 완료</div></div>').join('');
+    dynamic.innerHTML=missions.map((m,mi)=>'<div class="stat-card"><div class="stat-value">'+(mCounts[m.id]||0)+'</div><div class="stat-label">'+'Mission #'+(mi+1)+' 완료</div></div>').join('');
   }
   document.getElementById('stat-avg').textContent=avg+'점';
 }
@@ -492,7 +492,7 @@ function openSuccessModal(team){
   document.getElementById('success-mission-list').innerHTML=missions.map((m,i)=>{
     const cur=scores[team]?.[m.id];
     return '<label><input type="radio" name="success-mission" value="'+escHtml(m.id)+'" '+(i===0?'checked':'')+'>'
-      +' '+escHtml(m.name)+' <span style="color:var(--text-muted)">(최대 '+m.max_score+'점)</span>'
+      +' '+'Mission #'+(i+1)+' <span style="color:var(--text-muted)">(최대 '+m.max_score+'점)</span>'
       +(cur?' <span style="color:var(--warning);font-size:11px;margin-left:4px">[현재 '+cur.score+'점]</span>':'')
       +'</label>';
   }).join('');
@@ -514,7 +514,7 @@ function openManualScoreModal(team){
   document.getElementById('manual-score-team-name').textContent=team;
   const missions=currentClassroom?.missions||[];
   const sel=document.getElementById('manual-score-mission');
-  sel.innerHTML=missions.map(m=>'<option value="'+escHtml(m.id)+'">'+escHtml(m.name)+' (최대 '+m.max_score+'점)</option>').join('');
+  sel.innerHTML=missions.map((m,mi)=>'<option value="'+escHtml(m.id)+'">'+'Mission #'+(mi+1)+' (최대 '+m.max_score+'점)</option>').join('');
   const fillScore=()=>{
     const m=missions.find(x=>x.id===sel.value);
     document.getElementById('manual-score-value').value=(scores[team]?.[m?.id]?.score??'');
@@ -555,11 +555,11 @@ async function writeScore(team,missionId,score,source,note){
 // ── Classroom 설정 가이드 ─────────────────────────────────────
 function showSetupGuide(classroom){
   document.getElementById('setup-classroom-id').textContent=classroom.id;
-  document.getElementById('setup-mission-snippets').innerHTML=classroom.missions.map(m=>{
+  document.getElementById('setup-mission-snippets').innerHTML=classroom.missions.map((m,mi)=>{
     const gradingWf=m.grading_workflow||('grade-java-rescue-'+m.id+'.yml');
     const snippet='jobs:\n  grade:\n    uses: '+ORG+'/'+ADMIN_REPO+'/.github/workflows/'+escHtml(gradingWf)+'@main\n    with:\n      classroom: "'+escHtml(classroom.id)+'"\n      team_repo: ${{ github.repository }}\n      team_sha: ${{ github.sha }}\n    secrets: inherit';
     return '<div class="snippet-block">'
-      +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">'+escHtml(m.name)+' — <code>'+escHtml(m.id)+'</code></div>'
+      +'<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">'+'Mission #'+(mi+1)+' — <code>'+escHtml(m.id)+'</code></div>'
       +'<pre class="code-snippet">'+snippet+'</pre>'
       +'<button class="btn btn-secondary btn-sm" onclick="(function(b){navigator.clipboard.writeText(b.previousElementSibling.textContent).then(()=>showToast(\'복사됨\',\'success\'));})(this)">복사</button>'
       +'</div>';
@@ -573,7 +573,7 @@ function copySetupId(){navigator.clipboard.writeText(document.getElementById('se
 function downloadCSV(){
   const missions=currentClassroom?.missions||[];
   const teams=Object.keys(scores).sort();if(!teams.length){showToast('데이터 없음','error');return;}
-  const header=['팀명',...missions.map(m=>m.name),'총점','마지막채점'];
+  const header=['팀명',...missions.map((m,i)=>'Mission #'+(i+1)),'총점','마지막채점'];
   const rows=[header,...teams.map(t=>{const ms=missions.map(m=>scores[t][m.id]?.score||0);const tot=ms.reduce((a,b)=>a+b,0);const ts=missions.map(m=>scores[t][m.id]?.timestamp).filter(Boolean).sort().pop()||'';return[t,...ms,tot,ts];})];
   const blob=new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
   const cid=currentClassroom?.id||'scores';
