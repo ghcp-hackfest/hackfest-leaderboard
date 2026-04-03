@@ -116,9 +116,8 @@
       <span class="org-badge" id="classroom-status-indicator">로딩중...</span>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-primary btn-sm" onclick="requireToken(showNewClassroomModal)">&#x2B; New Classroom</button>
-      <button class="btn btn-secondary btn-sm" onclick="requireToken(loadStudentsForClassroom)">&#x1F465; 학생/팀 현황</button>
-      <button class="btn btn-secondary btn-sm" onclick="requireToken(confirmArchiveClassroom)">&#x1F4E6; Classroom 아카이브</button>
+      <button class="btn btn-primary btn-sm" onclick="requireToken(showNewClassroomModal)">&#x1F4E5; Classroom 불러오기</button>
+      <button class="btn btn-secondary btn-sm" id="students-btn" onclick="requireToken(loadStudentsForClassroom)">&#x1F465; 학생/팀 현황</button>
       <button class="btn btn-secondary btn-sm" onclick="refreshAll()">&#x21BB; 새로고침</button>
       <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">&#x2193; CSV</button>
       <a class="btn btn-secondary btn-sm" href="https://ghcp-hackfest.github.io/hackfest-leaderboard/" target="_blank">리더보드 &#x2192;</a>
@@ -356,11 +355,52 @@ async function selectClassroom(classroom){
 }
 
 function showNewClassroomModal(){
-  populateTemplateDropdown();
-  const box=document.getElementById('nc-mission-list');
-  if(!box.children.length)loadTemplateMissions();
+  document.getElementById('nc-classroom-url').value='';
+  document.getElementById('nc-preview').style.display='none';
+  document.getElementById('nc-create-btn').style.display='none';
+  document.getElementById('nc-mission-list').innerHTML='';
+  ncGithubClassroomId='';
   document.getElementById('new-classroom-overlay').classList.add('active');
-  setTimeout(()=>document.getElementById('nc-name').focus(),100);
+  setTimeout(()=>document.getElementById('nc-classroom-url').focus(),100);
+}
+
+async function fetchClassroomFromUrl(){
+  const url=document.getElementById('nc-classroom-url').value.trim();
+  if(!url){showToast('GitHub Classroom URL을 입력하세요','error');return;}
+  const m=url.match(/classrooms\/([0-9]+)/);
+  if(!m){showToast('올바른 GitHub Classroom URL이 아닙니다','error');return;}
+  const cid=m[1];
+  if(!ghToken){showToast('먼저 GitHub Token을 입력하세요','error');return;}
+  const btn=document.getElementById('nc-fetch-btn');
+  btn.disabled=true;btn.textContent='로딩...';
+  try{
+    const [cRes,aRes]=await Promise.all([
+      ghFetch('https://api.github.com/classrooms/'+cid,ghToken),
+      ghFetch('https://api.github.com/classrooms/'+cid+'/assignments?per_page=100',ghToken)
+    ]);
+    if(!cRes.ok){showToast('Classroom 조회 실패 ('+cRes.status+'). 토큰에 read:org 권한이 있는지 확인하세요','error');return;}
+    const classroom=await cRes.json();
+    const assignments=aRes.ok?await aRes.json():[];
+    ncGithubClassroomId=String(cid);
+    const slug=classroom.name?classroom.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):cid;
+    document.getElementById('nc-name').value=classroom.name||'';
+    document.getElementById('nc-id').value=slug;
+    document.getElementById('nc-org').value=(classroom.organization&&classroom.organization.login)||ORG;
+    const missions=assignments.map(a=>({
+      id:'mission-'+String(a.id),
+      name:a.title,
+      max_score:100,
+      github_assignment_id:a.id
+    }));
+    renderMissionRows(missions);
+    document.getElementById('nc-preview').style.display='block';
+    document.getElementById('nc-create-btn').style.display='';
+    showToast('Classroom 정보를 불러왔습니다','success');
+  }catch(e){
+    showToast('오류: '+e.message,'error');
+  }finally{
+    btn.disabled=false;btn.innerHTML='&#x1F50D; 불러오기';
+  }
 }
 function closeNewClassroomModal(){document.getElementById('new-classroom-overlay').classList.remove('active');}
 
